@@ -11,21 +11,26 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/admin")
 public class AdminMovieController {
 
     private final AdminMovieService adminMovieService;
     private final AdminDashboardService adminDashboardService;
+    private final AdminTagService adminTagService;
     private final AdminAuthService adminAuthService;
 
     public AdminMovieController(
             AdminMovieService adminMovieService,
             AdminDashboardService adminDashboardService,
+            AdminTagService adminTagService,
             AdminAuthService adminAuthService
     ) {
         this.adminMovieService = adminMovieService;
         this.adminDashboardService = adminDashboardService;
+        this.adminTagService = adminTagService;
         this.adminAuthService = adminAuthService;
     }
 
@@ -64,5 +69,31 @@ public class AdminMovieController {
     ) {
         adminAuthService.requireAdmin(authorization);
         return adminMovieService.updateMovie(id, request);
+    }
+
+    @GetMapping("/tags")
+    public List<AdminTagItem> tags(
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        adminAuthService.requireAdmin(authorization);
+        return adminTagService.listTags();
+    }
+
+    @PostMapping("/tags")
+    public AdminTagCreateResponse createTag(
+            @Valid @RequestBody AdminTagCreateRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        adminAuthService.requireAdmin(authorization);
+        return adminTagService.createTag(request);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/tags/{name}")
+    public AdminTagDeleteResponse deleteTag(
+            @PathVariable String name,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        adminAuthService.requireAdmin(authorization);
+        return adminTagService.deleteTag(name);
     }
 }

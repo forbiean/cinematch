@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { parseApiError } from "../utils/api";
 
 export default function AdminPage() {
-  const [tags, setTags] = useState(["科幻", "剧情", "动作", "悬疑", "爱情", "犯罪", "动画", "冒险", "惊悚", "战争", "历史", "传记", "奇幻", "喜剧"]);
+  const [tags, setTags] = useState([]);
+  const [tagLoading, setTagLoading] = useState(false);
+  const [tagError, setTagError] = useState("");
+  const [showCreateTagForm, setShowCreateTagForm] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [createTagSaving, setCreateTagSaving] = useState(false);
   const [overview, setOverview] = useState({
     movieTotal: 0,
     weekNewMovies: 0,
@@ -82,6 +87,30 @@ export default function AdminPage() {
       .finally(() => setDashboardLoading(false));
   }
 
+  function loadTags() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setTagError("请先登录管理员账号");
+      return;
+    }
+    setTagLoading(true);
+    setTagError("");
+    fetch("/api/admin/tags", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限访问标签管理（仅管理员）");
+          return parseApiError(res, "加载标签失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
+        return res.json();
+      })
+      .then((data) => setTags(Array.isArray(data) ? data : []))
+      .catch((err) => setTagError(err.message || "加载标签失败，请稍后重试"))
+      .finally(() => setTagLoading(false));
+  }
+
   function loadMovies(page) {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -113,6 +142,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadDashboard();
+    loadTags();
   }, []);
 
   useEffect(() => {
@@ -167,6 +197,7 @@ export default function AdminPage() {
         setCreateForm({ title: "", year: "", poster: "", tags: "", summary: "" });
         setMoviePage(1);
         loadMovies(1);
+        loadTags();
       })
       .catch((err) => setCreateError(err.message || "新增电影失败，请稍后重试"))
       .finally(() => setCreateSaving(false));
@@ -230,9 +261,70 @@ export default function AdminPage() {
       .then(() => {
         setEditingId(null);
         loadMovies(moviePage);
+        loadTags();
       })
       .catch((err) => setEditError(err.message || "编辑电影失败，请稍后重试"))
       .finally(() => setEditSaving(false));
+  }
+
+  function submitCreateTag(e) {
+    e.preventDefault();
+    if (!newTagName.trim()) {
+      setTagError("请输入标签名称");
+      return;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setTagError("请先登录管理员账号");
+      return;
+    }
+    setCreateTagSaving(true);
+    setTagError("");
+    fetch("/api/admin/tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: newTagName.trim() })
+    })
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限新增标签（仅管理员）");
+          return parseApiError(res, "新增标签失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
+        return res.json();
+      })
+      .then(() => {
+        setNewTagName("");
+        setShowCreateTagForm(false);
+        loadTags();
+      })
+      .catch((err) => setTagError(err.message || "新增标签失败，请稍后重试"))
+      .finally(() => setCreateTagSaving(false));
+  }
+
+  function removeTag(tagName) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setTagError("请先登录管理员账号");
+      return;
+    }
+    fetch(`/api/admin/tags/${encodeURIComponent(tagName)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限删除标签（仅管理员）");
+          return parseApiError(res, "删除标签失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
+        return res.json();
+      })
+      .then(() => {
+        loadTags();
+        loadMovies(moviePage);
+      })
+      .catch((err) => setTagError(err.message || "删除标签失败，请稍后重试"));
   }
 
   return (
@@ -300,8 +392,27 @@ export default function AdminPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 40 }}>
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><h3 style={{ fontSize: 18 }}>标签管理</h3><button className="btn btn-primary btn-sm" onClick={() => alert("打开新增标签弹窗")}>+ 新增标签</button></div>
-        <div style={{ padding: 24 }}><div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>{tags.map((tag) => <div key={tag} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)" }}><span style={{ fontSize: 13 }}>{tag}</span><button onClick={() => setTags((old) => old.filter((t) => t !== tag))} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button></div>)}</div></div>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><h3 style={{ fontSize: 18 }}>标签管理</h3><button className="btn btn-primary btn-sm" onClick={() => setShowCreateTagForm((v) => !v)}>{showCreateTagForm ? "取消新增" : "+ 新增标签"}</button></div>
+        {showCreateTagForm ? (
+          <form onSubmit={submitCreateTag} style={{ padding: "16px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <input value={newTagName} onChange={(e) => setNewTagName(e.target.value)} placeholder="标签名（如 科幻）" style={{ flex: 1, minWidth: 220, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            <button className="btn btn-primary btn-sm" type="submit" disabled={createTagSaving}>{createTagSaving ? "保存中..." : "提交新增"}</button>
+          </form>
+        ) : null}
+        <div style={{ padding: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {tags.map((tag) => (
+              <div key={tag.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)" }}>
+                <span style={{ fontSize: 13 }}>{tag.name}</span>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>({tag.usageCount || 0})</span>
+                <button onClick={() => removeTag(tag.name)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+          </div>
+          {tagLoading ? <div style={{ marginTop: 12, color: "var(--text-secondary)", fontSize: 13 }}>正在加载标签...</div> : null}
+          {tagError ? <div style={{ marginTop: 12, color: "#fca5a5", fontSize: 13 }}>{tagError}</div> : null}
+          {tags.length === 0 && !tagLoading ? <div style={{ marginTop: 12, color: "var(--text-secondary)", fontSize: 13 }}>暂无标签</div> : null}
+        </div>
       </div>
 
       <div className="card" style={{ overflow: "visible" }}>
