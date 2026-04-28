@@ -16,10 +16,11 @@ TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;
 
 INSERT INTO users(email, password_hash, role) VALUES
-('alice@test.com', '$2a$10$w8N7Pj7F9Tq7Xf0Q1k5f7uwP8QnWf3P7Qf8hJmW0Fj1Yy2Kp3fM5a', 'USER'),
-('bob@test.com', '$2a$10$w8N7Pj7F9Tq7Xf0Q1k5f7uwP8QnWf3P7Qf8hJmW0Fj1Yy2Kp3fM5a', 'USER'),
-('carol@test.com', '$2a$10$w8N7Pj7F9Tq7Xf0Q1k5f7uwP8QnWf3P7Qf8hJmW0Fj1Yy2Kp3fM5a', 'USER'),
-('dave@test.com', '$2a$10$w8N7Pj7F9Tq7Xf0Q1k5f7uwP8QnWf3P7Qf8hJmW0Fj1Yy2Kp3fM5a', 'USER');
+-- 以上测试账号的前台登录明文密码统一为：password
+('alice@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER'),
+('bob@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER'),
+('carol@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER'),
+('dave@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER');
 
 INSERT INTO movies(title, summary, release_year, poster_url) VALUES
 ('星际穿越', '一支探险队通过虫洞寻找人类新家园。', 2014, 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&h=600&fit=crop'),

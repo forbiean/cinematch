@@ -71,5 +71,28 @@ CREATE TABLE IF NOT EXISTS recommendation_logs (
   INDEX idx_recommendation_logs_created_at (created_at)
 ) ENGINE=InnoDB;
 
--- Optional seed admin account placeholder (replace password_hash with real hash):
--- INSERT INTO users(email, password_hash, role) VALUES('admin@cinematch.local', '<bcrypt-hash>', 'ADMIN');
+-- =========================================================
+-- 管理员账号初始化（给新人）
+-- =========================================================
+-- 背景：
+-- 1) 前台注册默认 role=USER，不能直接注册管理员。
+-- 2) 管理员必须是 role='ADMIN' 才能访问 /admin 与 /api/admin/*。
+--
+-- 方案A（推荐）：先用前台注册一个普通账号，再执行“提权”SQL
+-- 说明：不改密码，只把该账号角色改为 ADMIN。
+-- UPDATE users
+-- SET role = 'ADMIN'
+-- WHERE email = 'your_user@example.com';
+--
+-- 方案B：直接插入管理员账号（可重复执行）
+-- 说明：
+-- - password_hash 必须是 BCrypt 哈希串（不是明文密码）。
+-- - 下面示例的明文密码是：password
+-- - 若你有自己的 BCrypt 哈希，请替换 password_hash。
+-- - ON DUPLICATE KEY UPDATE 可保证重复执行脚本时不会报唯一键冲突。
+-- INSERT INTO users(email, password_hash, role)
+-- VALUES('admin@cinematch.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN')
+-- ON DUPLICATE KEY UPDATE role = 'ADMIN';
+--
+-- 快速校验：
+-- SELECT id, email, role FROM users WHERE role = 'ADMIN';
