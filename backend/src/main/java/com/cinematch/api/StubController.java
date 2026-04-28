@@ -1,6 +1,12 @@
 package com.cinematch.api;
 
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
@@ -14,12 +20,6 @@ public class StubController {
 
   @PostMapping("/auth/login")
   public Map<String, String> login() { return Map.of("token", "stub-jwt-token"); }
-
-  @GetMapping("/movies")
-  public Map<String, Object> movies() { return Map.of("items", List.of(), "page", 1); }
-
-  @GetMapping("/movies/{id}")
-  public Map<String, Object> movieDetail(@PathVariable Long id) { return Map.of("id", id, "title", "stub movie"); }
 
   @PostMapping("/movies/{id}/ratings")
   public Map<String, Object> rate(@PathVariable Long id) { return Map.of("movieId", id, "saved", true); }

@@ -1,22 +1,54 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import MovieCard from "../components/MovieCard";
-import { movies } from "../data/mockData";
 
 export default function MovieDetailPage() {
   const { id } = useParams();
-  const movie = movies.find((m) => m.id === Number(id)) || movies[0];
-  const [rating, setRating] = useState(movie.userRating || 0);
+  const [movie, setMovie] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [savedText, setSavedText] = useState("");
-  const [favorite, setFavorite] = useState(movie.isFavorite);
-  const similar = useMemo(() => movies.filter((m) => m.id !== movie.id && m.genres.some((g) => movie.genres.includes(g))).slice(0, 4), [movie]);
+  const [favorite, setFavorite] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    fetch(`/api/movies/${id}`, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        setMovie(data);
+        setRating(data.userRating || 0);
+        setFavorite(Boolean(data.isFavorite));
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        setError("加载电影详情失败，请稍后重试");
+      })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [id]);
 
   function rateMovie(n) {
     setRating(n);
     setSavedText("评分已保存");
     setTimeout(() => setSavedText(""), 1500);
   }
+
+  if (loading) {
+    return <div style={{ padding: "40px 0", color: "var(--text-secondary)" }}>正在加载...</div>;
+  }
+
+  if (error || !movie) {
+    return <div style={{ padding: "40px 0", color: "#fca5a5" }}>{error || "电影不存在"}</div>;
+  }
+
+  const similar = Array.isArray(movie.similar) ? movie.similar : [];
 
   return (
     <>
@@ -30,17 +62,17 @@ export default function MovieDetailPage() {
         </div>
         <div>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20 }}>
-            <div><h1 style={{ fontSize: 42, lineHeight: 1.1 }}>{movie.title}</h1><p style={{ fontSize: 16, color: "var(--text-secondary)", marginTop: 8, fontStyle: "italic", fontFamily: "'Playfair Display', serif" }}>{movie.originalTitle} · {movie.year}</p></div>
+            <div><h1 style={{ fontSize: 42, lineHeight: 1.1 }}>{movie.title}</h1><p style={{ fontSize: 16, color: "var(--text-secondary)", marginTop: 8, fontStyle: "italic", fontFamily: "'Playfair Display', serif" }}>{movie.originalTitle || movie.title} · {movie.year}</p></div>
             <div style={{ textAlign: "center", flexShrink: 0 }}><div style={{ fontSize: 42, fontWeight: 700, color: "var(--accent-gold)", fontFamily: "'Playfair Display', serif" }}>{movie.rating}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>社区评分</div></div>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
-            {movie.genres.map((g) => <span key={g} className="tag-pill" style={{ fontSize: 13, padding: "5px 14px" }}>{g}</span>)}
-            {movie.tags.map((t) => <span key={t} className="tag-pill" style={{ fontSize: 13, padding: "5px 14px", background: "var(--accent-crimson-soft)", color: "var(--accent-crimson)", borderColor: "rgba(192,57,43,0.2)" }}>{t}</span>)}
+            {(movie.genres || []).map((g) => <span key={g} className="tag-pill" style={{ fontSize: 13, padding: "5px 14px" }}>{g}</span>)}
+            {(movie.tags || []).map((t) => <span key={t} className="tag-pill" style={{ fontSize: 13, padding: "5px 14px", background: "var(--accent-crimson-soft)", color: "var(--accent-crimson)", borderColor: "rgba(192,57,43,0.2)" }}>{t}</span>)}
           </div>
           <div style={{ marginTop: 28 }}><h3 style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>剧情简介</h3><p style={{ fontSize: 16, lineHeight: 1.8, color: "var(--text-secondary)" }}>{movie.summary}</p></div>
           <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             <div><h3 style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>导演</h3><p style={{ fontSize: 16 }}>{movie.director}</p></div>
-            <div><h3 style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>主演</h3><p style={{ fontSize: 16, color: "var(--text-secondary)" }}>{movie.cast.join("、")}</p></div>
+            <div><h3 style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>主演</h3><p style={{ fontSize: 16, color: "var(--text-secondary)" }}>{(movie.cast || []).join("、")}</p></div>
           </div>
           <div style={{ marginTop: 32, padding: 24, background: "var(--bg-card)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
             <h3 style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500, marginBottom: 16, textTransform: "uppercase", letterSpacing: 1 }}>你的评分</h3>
