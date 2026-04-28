@@ -16,3 +16,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:cinematch-dev-secret-key-cinematch-dev-secret-key}
+    expire-seconds: ${JWT_EXPIRE_SECONDS:604800}

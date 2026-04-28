@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 export default function RegisterPage() {
   const nav = useNavigate();
   const [form, setForm] = useState({ nickname: "", email: "", password: "", confirm: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const inputStyle = {
     width: "100%",
@@ -17,13 +19,34 @@ export default function RegisterPage() {
     outline: "none"
   };
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
+    setError("");
     if (!form.nickname || !form.email || !form.password) return alert("请填写所有必填项");
     if (form.password !== form.confirm) return alert("两次输入的密码不一致");
     if (form.password.length < 8) return alert("密码长度至少8位");
-    alert(`注册成功！欢迎加入 CineMatch，${form.nickname}`);
-    nav("/login");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nickname: form.nickname.trim(),
+          email: form.email.trim(),
+          password: form.password
+        })
+      });
+      if (!res.ok) {
+        if (res.status === 409) throw new Error("该邮箱已注册");
+        throw new Error("注册失败，请稍后重试");
+      }
+      alert(`注册成功！欢迎加入 CineMatch，${form.nickname}`);
+      nav("/login");
+    } catch (err) {
+      setError(err.message || "注册失败，请稍后重试");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -39,7 +62,8 @@ export default function RegisterPage() {
         <div><label style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>邮箱</label><input type="email" placeholder="name@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={inputStyle} /></div>
         <div><label style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>密码</label><input type="password" placeholder="至少8位字符" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} style={inputStyle} /></div>
         <div><label style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>确认密码</label><input type="password" placeholder="再次输入密码" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} style={inputStyle} /></div>
-        <button className="btn btn-primary" style={{ width: "100%", marginTop: 8 }}>注册</button>
+        {error ? <p style={{ color: "#fca5a5", fontSize: 13 }}>{error}</p> : null}
+        <button className="btn btn-primary" disabled={submitting} style={{ width: "100%", marginTop: 8 }}>{submitting ? "注册中..." : "注册"}</button>
         <p style={{ textAlign: "center", fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>已有账号？<Link to="/login" style={{ color: "var(--accent-gold)", textDecoration: "none" }}>立即登录</Link></p>
       </div>
     </form>

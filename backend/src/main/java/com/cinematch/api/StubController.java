@@ -15,12 +15,6 @@ import java.util.Map;
 @RequestMapping("/api")
 public class StubController {
 
-  @PostMapping("/auth/register")
-  public Map<String, String> register() { return Map.of("message", "register stub"); }
-
-  @PostMapping("/auth/login")
-  public Map<String, String> login() { return Map.of("token", "stub-jwt-token"); }
-
   @PostMapping("/movies/{id}/ratings")
   public Map<String, Object> rate(@PathVariable Long id) { return Map.of("movieId", id, "saved", true); }
 

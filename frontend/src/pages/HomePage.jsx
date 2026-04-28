@@ -1,10 +1,29 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import MovieCard from "../components/MovieCard";
 import { movies, recommendations } from "../data/mockData";
 
 export default function HomePage() {
-  const trending = [movies[1], movies[0], movies[3], movies[4], movies[2]].filter(Boolean);
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
   const recMovies = recommendations.slice(0, 5).map((r) => movies.find((m) => m.id === r.movieId)).filter(Boolean);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setTrendingLoading(true);
+    fetch("/api/movies?page=1&pageSize=5&sort=hot", { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => setTrending(Array.isArray(data.items) ? data.items : []))
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        setTrending([]);
+      })
+      .finally(() => setTrendingLoading(false));
+    return () => controller.abort();
+  }, []);
 
   return (
     <>
@@ -23,6 +42,7 @@ export default function HomePage() {
 
       <section className="mt-48">
         <div className="section-header"><div><h2 className="section-title">本周热门</h2><p className="section-sub">社区评分最高的影片</p></div><Link to="/movies" style={{ color: "var(--accent-gold)", fontSize: 14, fontWeight: 500 }}>查看全部 →</Link></div>
+        {trendingLoading ? <div style={{ color: "var(--text-secondary)" }}>正在加载...</div> : null}
         <div className="movie-grid-lg">{trending.map((m) => <MovieCard key={m.id} movie={m} size="large" />)}</div>
       </section>
 

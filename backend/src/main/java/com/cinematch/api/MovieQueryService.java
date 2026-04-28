@@ -190,6 +190,9 @@ public class MovieQueryService {
     }
 
     private String resolveOrderBy(String sort) {
+        if ("hot".equalsIgnoreCase(sort)) {
+            return "COUNT(r.id) DESC, rating DESC, m.id DESC";
+        }
         if ("year".equalsIgnoreCase(sort)) {
             return "m.release_year DESC, m.id DESC";
         }
