@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import MovieCard from "../components/MovieCard";
 
 export default function ProfilePage() {
+  const nav = useNavigate();
   const [profile, setProfile] = useState(null);
   const [ratings, setRatings] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -46,12 +47,23 @@ export default function ProfilePage() {
   const avgScore = profile?.avgScore ?? 0;
   const favoriteGenre = profile?.favoriteGenre || "暂无";
 
+  function onLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("tokenType");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRole");
+    nav("/login");
+  }
+
   return (
     <>
       <div style={{ padding: "40px 0 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, var(--accent-crimson), #8e2de2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700 }}>{initial}</div>
           <div><h1 style={{ fontSize: 32 }}>{nickname}</h1><p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 4 }}>加入于 {joinAt} · 电影爱好者</p></div>
+          </div>
+          <button type="button" className="btn btn-ghost" onClick={onLogout}>退出登录</button>
         </div>
       </div>
       {loading ? <div style={{ color: "var(--text-secondary)", marginBottom: 20 }}>正在加载个人信息...</div> : null}
