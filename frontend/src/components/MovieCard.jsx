@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 
 export default function MovieCard({ movie, size = "normal" }) {
-  const stars = "★".repeat(Math.floor(movie.rating / 2)) + "☆".repeat(5 - Math.floor(movie.rating / 2));
+  const rating = Number(movie.rating || 0);
+  const starCount = Math.max(0, Math.min(5, Math.round(rating / 2)));
+  const stars = "★".repeat(starCount) + "☆".repeat(5 - starCount);
   return (
     <Link className="card" style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }} to={`/movies/${movie.id}`}>
       <div className="poster">
