@@ -127,7 +127,6 @@ export default function MovieDetailPage() {
             <div style={{ textAlign: "center", flexShrink: 0 }}><div style={{ fontSize: 42, fontWeight: 700, color: "var(--accent-gold)", fontFamily: "'Playfair Display', serif" }}>{movie.rating}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>社区评分</div></div>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
-            {(movie.genres || []).map((g) => <span key={g} className="tag-pill" style={{ fontSize: 13, padding: "5px 14px" }}>{g}</span>)}
             {(movie.tags || []).map((t) => <span key={t} className="tag-pill" style={{ fontSize: 13, padding: "5px 14px", background: "var(--accent-crimson-soft)", color: "var(--accent-crimson)", borderColor: "rgba(192,57,43,0.2)" }}>{t}</span>)}
           </div>
           <div style={{ marginTop: 28 }}><h3 style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>剧情简介</h3><p style={{ fontSize: 16, lineHeight: 1.8, color: "var(--text-secondary)" }}>{movie.summary}</p></div>
