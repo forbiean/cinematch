@@ -67,7 +67,7 @@ export default function MoviesPage() {
       {loading ? <div style={{ color: "var(--text-secondary)", margin: "20px 0" }}>正在加载...</div> : null}
       {!loading && !error && items.length === 0 ? <div style={{ color: "var(--text-secondary)", margin: "20px 0" }}>暂无数据</div> : null}
       <div className="movie-grid">{items.map((m) => <MovieCard key={m.id} movie={m} />)}</div>
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 48, gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 24, marginBottom: 8, gap: 8 }}>
         <button className="btn btn-ghost btn-sm" disabled={!canPrev} onClick={() => setPage((p) => Math.max(1, p - 1))}>上一页</button>
         <span style={{ display: "flex", alignItems: "center", padding: "0 16px", color: "var(--text-secondary)", fontSize: 14 }}>第 <strong style={{ color: "var(--text-primary)", margin: "0 4px" }}>{page}</strong> / {maxPage} 页</span>
         <button className="btn btn-ghost btn-sm" disabled={!canNext} onClick={() => setPage((p) => Math.min(maxPage, p + 1))}>下一页</button>
