@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电影详情 — CineMatch</title>
+  <link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="top-nav">
+      <div class="nav-inner">
+        <a class="brand" href="./index.html">
+          <div class="brand-mark">C</div>
+          CineMatch
+        </a>
+        <ul class="nav-links">
+          <li><a href="./index.html">首页</a></li>
+          <li><a href="./movies.html">电影</a></li>
+          <li><a href="./recommendations.html">推荐</a></li>
+          <li><a href="./profile.html">我的</a></li>
+          <li><a href="./admin.html">后台</a></li>
+        </ul>
+        <div class="nav-user">
+          <a href="./login.html" class="btn btn-ghost btn-sm">登录</a>
+          <a href="./profile.html" class="avatar">L</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main-content" id="movie-detail-content"></main>
+
+    <footer class="app-footer">
+      <p>CineMatch · 电影推荐系统</p>
+    </footer>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const movieId = parseInt(getUrlParam('id')) || 1;
+    const movie = movies.find(m => m.id === movieId) || movies[0];
+    const stars = '★'.repeat(Math.floor(movie.rating / 2)) + '☆'.repeat(5 - Math.floor(movie.rating / 2));
+    const userStars = movie.userRating ? '★'.repeat(movie.userRating) + '☆'.repeat(5 - movie.userRating) : '未评分';
+
+    document.getElementById('movie-detail-content').innerHTML = `
+      <div style="display: grid; grid-template-columns: 300px 1fr; gap: 40px; padding: 40px 0;">
+        <div>
+          <div style="border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+            <img src="${movie.poster}" alt="${movie.title}" style="width: 100%; display: block;">
+          </div>
+          <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button id="fav-btn" class="btn btn-primary" style="flex: 1;" onclick="toggleFavorite()">${movie.isFavorite ? '已收藏' : '收藏'}</button>
+            <button class="btn btn-ghost" style="flex: 1;" onclick="alert('分享链接已复制到剪贴板')">分享</button>
+          </div>
+        </div>
+        <div>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;">
+            <div>
+              <h1 style="font-size: 42px; line-height: 1.1;">${movie.title}</h1>
+              <p style="font-size: 16px; color: var(--text-secondary); margin-top: 8px; font-style: italic; font-family: 'Playfair Display', serif;">${movie.originalTitle} · ${movie.year}</p>
+            </div>
+            <div style="text-align: center; flex-shrink: 0;">
+              <div style="font-size: 42px; font-weight: 700; color: var(--accent-gold); font-family: 'Playfair Display', serif;">${movie.rating}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">社区评分</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap;">
+            ${movie.genres.map(g => `<span class="tag-pill" style="font-size: 13px; padding: 5px 14px;">${g}</span>`).join('')}
+            ${movie.tags.map(t => `<span class="tag-pill" style="font-size: 13px; padding: 5px 14px; background: var(--accent-crimson-soft); color: var(--accent-crimson); border-color: rgba(192,57,43,0.2);">${t}</span>`).join('')}
+          </div>
+
+          <div style="margin-top: 28px;">
+            <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; font-family: 'Noto Sans SC', sans-serif;">剧情简介</h3>
+            <p style="font-size: 16px; line-height: 1.8; color: var(--text-secondary);">${movie.summary}</p>
+          </div>
+
+          <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div>
+              <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; font-family: 'Noto Sans SC', sans-serif;">导演</h3>
+              <p style="font-size: 16px;">${movie.director}</p>
+            </div>
+            <div>
+              <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; font-family: 'Noto Sans SC', sans-serif;">主演</h3>
+              <p style="font-size: 16px; color: var(--text-secondary);">${movie.cast.join('、')}</p>
+            </div>
+          </div>
+
+          <div style="margin-top: 32px; padding: 24px; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; font-family: 'Noto Sans SC', sans-serif;">你的评分</h3>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <div id="star-input" style="font-size: 28px; color: var(--accent-gold); cursor: pointer; user-select: none;">
+                ${[1,2,3,4,5].map(i => `<span onclick="rateMovie(${i})" onmouseover="hoverStar(${i})" onmouseout="resetStar()" data-star="${i}">${i <= (movie.userRating || 0) ? '★' : '☆'}</span>`).join('')}
+              </div>
+              <span id="rating-text" style="font-size: 14px; color: var(--text-muted);">${movie.userRating ? movie.userRating + ' 星' : '点击星星评分'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 48px;">
+        <div class="section-header">
+          <h2 class="section-title" style="font-size: 22px;">相似推荐</h2>
+        </div>
+        <div class="movie-grid-lg" id="similar-movies"></div>
+      </div>
+    `;
+
+    document.getElementById('similar-movies').innerHTML = movies
+      .filter(m => m.id !== movie.id && m.genres.some(g => movie.genres.includes(g)))
+      .slice(0, 4)
+      .map(m => createMovieCard(m, 'large'))
+      .join('');
+
+    let currentRating = movie.userRating || 0;
+
+    function hoverStar(n) {
+      const stars = document.querySelectorAll('#star-input span');
+      stars.forEach((s, i) => s.textContent = i < n ? '★' : '☆');
+      document.getElementById('rating-text').textContent = n + ' 星';
+    }
+
+    function resetStar() {
+      const stars = document.querySelectorAll('#star-input span');
+      stars.forEach((s, i) => s.textContent = i < currentRating ? '★' : '☆');
+      document.getElementById('rating-text').textContent = currentRating ? currentRating + ' 星' : '点击星星评分';
+    }
+
+    function rateMovie(n) {
+      currentRating = n;
+      movie.userRating = n;
+      const stars = document.querySelectorAll('#star-input span');
+      stars.forEach((s, i) => s.textContent = i < n ? '★' : '☆');
+      document.getElementById('rating-text').textContent = n + ' 星 — 评分已保存';
+      setTimeout(() => {
+        document.getElementById('rating-text').textContent = n + ' 星';
+      }, 1500);
+    }
+
+    function toggleFavorite() {
+      movie.isFavorite = !movie.isFavorite;
+      const btn = document.getElementById('fav-btn');
+      btn.textContent = movie.isFavorite ? '已收藏' : '收藏';
+      btn.style.background = movie.isFavorite ? 'var(--accent-crimson)' : '';
+      btn.style.borderColor = movie.isFavorite ? 'var(--accent-crimson)' : '';
+    }
+  </script>
+</body>
+</html>

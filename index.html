@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineMatch — 电影推荐系统</title>
+  <link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="top-nav">
+      <div class="nav-inner">
+        <a class="brand" href="./index.html">
+          <div class="brand-mark">C</div>
+          CineMatch
+        </a>
+        <ul class="nav-links">
+          <li><a href="./index.html" class="active">首页</a></li>
+          <li><a href="./movies.html">电影</a></li>
+          <li><a href="./recommendations.html">推荐</a></li>
+          <li><a href="./profile.html">我的</a></li>
+          <li><a href="./admin.html">后台</a></li>
+        </ul>
+        <div class="nav-user">
+          <a href="./login.html" class="btn btn-ghost btn-sm">登录</a>
+          <a href="./profile.html" class="avatar">L</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <section class="hero" style="padding: 80px 0 60px; text-align: center; position: relative; overflow: hidden;">
+        <div style="position: absolute; inset: 0; opacity: 0.15; pointer-events: none;">
+          <div style="position: absolute; top: -20%; left: -10%; width: 500px; height: 500px; background: radial-gradient(circle, var(--accent-gold), transparent 70%); filter: blur(80px);"></div>
+          <div style="position: absolute; bottom: -20%; right: -10%; width: 400px; height: 400px; background: radial-gradient(circle, var(--accent-crimson), transparent 70%); filter: blur(80px);"></div>
+        </div>
+        <h1 style="font-size: clamp(36px, 6vw, 64px); line-height: 1.1; position: relative; z-index: 1;">
+          发现下一部<br><span class="text-gold">心动电影</span>
+        </h1>
+        <p style="font-size: 18px; color: var(--text-secondary); max-width: 520px; margin: 20px auto 0; position: relative; z-index: 1;">
+          基于你的口味，从数万部影片中精准推荐。评分越多，推荐越懂你。
+        </p>
+        <div style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; position: relative; z-index: 1;">
+          <a href="./movies.html" class="btn btn-primary">浏览电影</a>
+          <a href="./recommendations.html" class="btn btn-ghost">查看推荐</a>
+        </div>
+      </section>
+
+      <section class="mt-48">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">本周热门</h2>
+            <p class="section-sub">社区评分最高的影片</p>
+          </div>
+          <a href="./movies.html" style="color: var(--accent-gold); font-size: 14px; font-weight: 500;">查看全部 →</a>
+        </div>
+        <div class="movie-grid-lg" id="home-trending"></div>
+      </section>
+
+      <section class="mt-48">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">为你推荐</h2>
+            <p class="section-sub">基于你的评分历史</p>
+          </div>
+          <a href="./recommendations.html" style="color: var(--accent-gold); font-size: 14px; font-weight: 500;">查看全部 →</a>
+        </div>
+        <div class="movie-grid-lg" id="home-recommended"></div>
+      </section>
+
+      <section class="mt-48" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 48px; border: 1px solid var(--border-subtle); text-align: center;">
+        <h2 style="font-size: 32px;">开始记录你的观影旅程</h2>
+        <p style="color: var(--text-secondary); margin-top: 12px; max-width: 480px; margin-inline: auto;">
+          评分和收藏电影，让推荐算法更懂你的品味。
+        </p>
+        <a href="./movies.html" class="btn btn-primary mt-24">去评分</a>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>CineMatch · 电影推荐系统</p>
+      <p style="margin-top: 4px;">基于 Spring Boot + React 构建</p>
+    </footer>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const trending = [movies[1], movies[0], movies[3], movies[4], movies[2]];
+    document.getElementById('home-trending').innerHTML = trending.map(m => createMovieCard(m, 'large')).join('');
+    document.getElementById('home-recommended').innerHTML = recommendations.slice(0, 5).map(r => {
+      const movie = movies.find(m => m.id === r.movieId);
+      return createMovieCard(movie, 'large');
+    }).join('');
+  </script>
+</body>
+</html>
