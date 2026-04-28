@@ -47,10 +47,11 @@ public class AdminMovieController {
     public AdminMoviesPageResponse movies(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String query,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         adminAuthService.requireAdmin(authorization);
-        return adminMovieService.listMovies(page, pageSize);
+        return adminMovieService.listMovies(page, pageSize, query);
     }
 
     @PostMapping("/movies")

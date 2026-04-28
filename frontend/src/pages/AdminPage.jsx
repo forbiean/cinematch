@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [movieTotal, setMovieTotal] = useState(0);
   const [moviePage, setMoviePage] = useState(1);
   const [moviePageSize] = useState(10);
+  const [movieQueryInput, setMovieQueryInput] = useState("");
+  const [movieQuery, setMovieQuery] = useState("");
   const [movieLoading, setMovieLoading] = useState(false);
   const [movieError, setMovieError] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -121,7 +123,7 @@ export default function AdminPage() {
       .finally(() => setTagLoading(false));
   }
 
-  function loadMovies(page) {
+  function loadMovies(page, queryText = movieQuery) {
     const token = localStorage.getItem("token");
     if (!token) {
       setMovieRows([]);
@@ -131,7 +133,7 @@ export default function AdminPage() {
     }
     setMovieLoading(true);
     setMovieError("");
-    fetch(`/api/admin/movies?page=${page}&pageSize=${moviePageSize}`, {
+    fetch(`/api/admin/movies?page=${page}&pageSize=${moviePageSize}&query=${encodeURIComponent(queryText || "")}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then((res) => {
@@ -156,11 +158,17 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    loadMovies(moviePage);
-  }, [moviePage, moviePageSize]);
+    loadMovies(moviePage, movieQuery);
+  }, [moviePage, moviePageSize, movieQuery]);
 
   function updateCreateField(key, value) {
     setCreateForm((old) => ({ ...old, [key]: value }));
+  }
+
+  function submitMovieSearch(e) {
+    e.preventDefault();
+    setMoviePage(1);
+    setMovieQuery(movieQueryInput.trim());
   }
 
   function submitCreateMovie(e) {
@@ -515,7 +523,15 @@ export default function AdminPage() {
       ) : null}
 
       <div className="card" style={{ overflow: "visible" }}>
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><h3 style={{ fontSize: 18 }}>电影管理</h3><button className="btn btn-primary btn-sm" onClick={() => setShowCreateForm((v) => !v)}>{showCreateForm ? "取消新增" : "+ 新增电影"}</button></div>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h3 style={{ fontSize: 18 }}>电影管理</h3>
+          <form onSubmit={submitMovieSearch} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={movieQueryInput} onChange={(e) => setMovieQueryInput(e.target.value)} placeholder="搜索电影标题/简介" style={{ width: 240, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            <button className="btn btn-ghost btn-sm" type="submit">搜索</button>
+            {movieQuery ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setMovieQueryInput(""); setMoviePage(1); setMovieQuery(""); }}>清空</button> : null}
+          </form>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateForm((v) => !v)}>{showCreateForm ? "取消新增" : "+ 新增电影"}</button>
+        </div>
         {showCreateForm ? (
           <form onSubmit={submitCreateMovie} style={{ padding: "16px 24px", borderBottom: "1px solid var(--border-subtle)", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
             <input value={createForm.title} onChange={(e) => updateCreateField("title", e.target.value)} placeholder="标题（必填）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />

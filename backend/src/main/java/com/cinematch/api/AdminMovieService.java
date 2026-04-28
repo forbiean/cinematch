@@ -32,21 +32,32 @@ public class AdminMovieService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public AdminMoviesPageResponse listMovies(int page, int pageSize) {
+    public AdminMoviesPageResponse listMovies(int page, int pageSize, String query) {
         ensureMovieExtraColumns();
         int safePageSize = Math.min(Math.max(pageSize, 1), 50);
         int safePage = Math.max(page, 1);
         int offset = (safePage - 1) * safePageSize;
+        String likeQuery = "%" + (query == null ? "" : query.trim()) + "%";
+        boolean hasQuery = query != null && !query.trim().isEmpty();
 
-        Long total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM movies", new MapSqlParameterSource(), Long.class);
+        Long total = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM movies
+                WHERE (:hasQuery = false OR title LIKE :query OR summary LIKE :query)
+                """, new MapSqlParameterSource()
+                .addValue("hasQuery", hasQuery)
+                .addValue("query", likeQuery), Long.class);
         List<AdminMovieItem> items = jdbcTemplate.query("""
                 SELECT m.id, m.title, m.summary, m.release_year, m.poster_url, m.director, m.cast_text, COALESCE(ROUND(AVG(r.score), 1), 0.0) AS rating
                 FROM movies m
                 LEFT JOIN ratings r ON r.movie_id = m.id
+                WHERE (:hasQuery = false OR m.title LIKE :query OR m.summary LIKE :query)
                 GROUP BY m.id, m.title, m.summary, m.release_year, m.poster_url, m.director, m.cast_text
                 ORDER BY m.id DESC
                 LIMIT :limit OFFSET :offset
                 """, new MapSqlParameterSource()
+                .addValue("hasQuery", hasQuery)
+                .addValue("query", likeQuery)
                 .addValue("limit", safePageSize)
                 .addValue("offset", offset), (rs, rowNum) -> new AdminMovieItem(
                 rs.getLong("id"),
