@@ -37,7 +37,7 @@ public class AuthService {
             jdbcTemplate.update("""
                     INSERT INTO users(email, password_hash, role)
                     VALUES (:email, :passwordHash, :role)
-                    """, params, keyHolder);
+                    """, params, keyHolder, new String[]{"id"});
         } catch (DuplicateKeyException ex) {
             throw new ResponseStatusException(CONFLICT, "email already registered");
         }
