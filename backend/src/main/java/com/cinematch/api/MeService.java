@@ -8,8 +8,11 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
@@ -27,11 +30,7 @@ public class MeService {
     }
 
     public MeProfileResponse profile(String authorization) {
-        String token = extractToken(authorization);
-        Map<String, Object> claims = jwtService.parseToken(token);
-        if (claims == null || claims.get("userId") == null) {
-            throw new ResponseStatusException(UNAUTHORIZED, "invalid token");
-        }
+        Map<String, Object> claims = parseClaims(authorization);
         Long userId = ((Number) claims.get("userId")).longValue();
         String email = String.valueOf(claims.getOrDefault("sub", ""));
 
@@ -85,6 +84,60 @@ public class MeService {
         );
     }
 
+    public List<MyRatingItem> myRatings(String authorization) {
+        Long userId = extractUserId(authorization);
+        return jdbcTemplate.query("""
+                SELECT r.movie_id, m.title, m.release_year, m.poster_url, r.score, r.created_at
+                FROM ratings r
+                JOIN movies m ON m.id = r.movie_id
+                WHERE r.user_id = :userId
+                ORDER BY r.created_at DESC, r.id DESC
+                """, new MapSqlParameterSource("userId", userId), (rs, rowNum) -> new MyRatingItem(
+                rs.getLong("movie_id"),
+                rs.getString("title"),
+                rs.getInt("release_year"),
+                normalizePoster(rs.getString("poster_url")),
+                rs.getInt("score"),
+                rs.getTimestamp("created_at").toLocalDateTime().toLocalDate().toString()
+        ));
+    }
+
+    public List<MovieListItem> myFavorites(String authorization) {
+        Long userId = extractUserId(authorization);
+        List<MovieListItem> items = jdbcTemplate.query("""
+                SELECT m.id, m.title, m.release_year, m.poster_url, COALESCE(ROUND(AVG(r.score), 1), 0.0) AS rating
+                FROM favorites f
+                JOIN movies m ON m.id = f.movie_id
+                LEFT JOIN ratings r ON r.movie_id = m.id
+                WHERE f.user_id = :userId
+                GROUP BY m.id, m.title, m.release_year, m.poster_url, f.created_at
+                ORDER BY f.created_at DESC, m.id DESC
+                """, new MapSqlParameterSource("userId", userId), (rs, rowNum) -> new MovieListItem(
+                rs.getLong("id"),
+                rs.getString("title"),
+                rs.getInt("release_year"),
+                normalizePoster(rs.getString("poster_url")),
+                rs.getBigDecimal("rating"),
+                new ArrayList<>()
+        ));
+        fillTags(items);
+        return items;
+    }
+
+    private Long extractUserId(String authorization) {
+        Map<String, Object> claims = parseClaims(authorization);
+        return ((Number) claims.get("userId")).longValue();
+    }
+
+    private Map<String, Object> parseClaims(String authorization) {
+        String token = extractToken(authorization);
+        Map<String, Object> claims = jwtService.parseToken(token);
+        if (claims == null || claims.get("userId") == null) {
+            throw new ResponseStatusException(UNAUTHORIZED, "invalid token");
+        }
+        return claims;
+    }
+
     private String extractToken(String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "missing token");
@@ -99,6 +152,37 @@ public class MeService {
             return "用户";
         }
         return name;
+    }
+
+    private String normalizePoster(String posterUrl) {
+        if (posterUrl == null || posterUrl.isBlank()) {
+            return "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=800&q=80";
+        }
+        return posterUrl;
+    }
+
+    private void fillTags(List<MovieListItem> items) {
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Long> ids = items.stream().map(MovieListItem::id).toList();
+        Map<Long, MovieListItem> index = items.stream()
+                .collect(Collectors.toMap(MovieListItem::id, item -> item, (a, b) -> a, LinkedHashMap::new));
+        List<Map<String, Object>> tags = jdbcTemplate.queryForList("""
+                SELECT movie_id, tag
+                FROM movie_tags
+                WHERE movie_id IN (:ids)
+                ORDER BY id ASC
+                """, new MapSqlParameterSource("ids", ids));
+
+        for (Map<String, Object> row : tags) {
+            Long movieId = ((Number) row.get("movie_id")).longValue();
+            String tag = (String) row.get("tag");
+            MovieListItem item = index.get(movieId);
+            if (item != null) {
+                item.genres().add(tag);
+            }
+        }
     }
 }
 
@@ -117,3 +201,11 @@ record UserProfileRow(Long id, String email, LocalDateTime createdAt) {}
 
 record StatsRow(int ratedCount, int favoriteCount, BigDecimal avgScore) {}
 
+record MyRatingItem(
+        Long movieId,
+        String title,
+        int year,
+        String poster,
+        int score,
+        String date
+) {}

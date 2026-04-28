@@ -1,6 +1,5 @@
 package com.cinematch.api;
 
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -8,21 +7,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
 public class StubController {
-
-  @PostMapping("/movies/{id}/ratings")
-  public Map<String, Object> rate(@PathVariable Long id) { return Map.of("movieId", id, "saved", true); }
-
-  @PostMapping("/movies/{id}/favorite")
-  public Map<String, Object> favorite(@PathVariable Long id) { return Map.of("movieId", id, "favorite", true); }
-
-  @DeleteMapping("/movies/{id}/favorite")
-  public Map<String, Object> unfavorite(@PathVariable Long id) { return Map.of("movieId", id, "favorite", false); }
 
   @GetMapping("/recommendations")
   public Map<String, Object> recommendations() {

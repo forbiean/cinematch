@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import MovieCard from "../components/MovieCard";
-import { movies, profileRatings, profileTags } from "../data/mockData";
 
 export default function ProfilePage() {
-  const favorites = movies.filter((m) => m.isFavorite);
   const [profile, setProfile] = useState(null);
+  const [ratings, setRatings] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -16,14 +16,24 @@ export default function ProfilePage() {
       setLoading(false);
       return;
     }
-    fetch("/api/me/profile", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
+    Promise.all([
+      fetch("/api/me/profile", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/me/ratings", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/me/favorites", { headers: { Authorization: `Bearer ${token}` } })
+    ])
+      .then(async ([profileRes, ratingsRes, favoritesRes]) => {
+        if (!profileRes.ok || !ratingsRes.ok || !favoritesRes.ok) {
+          throw new Error("load failed");
+        }
+        const [profileData, ratingsData, favoritesData] = await Promise.all([
+          profileRes.json(),
+          ratingsRes.json(),
+          favoritesRes.json()
+        ]);
+        setProfile(profileData);
+        setRatings(Array.isArray(ratingsData) ? ratingsData : []);
+        setFavorites(Array.isArray(favoritesData) ? favoritesData : []);
       })
-      .then((data) => setProfile(data))
       .catch(() => setError("加载个人信息失败，请重新登录后重试"))
       .finally(() => setLoading(false));
   }, []);
@@ -54,11 +64,11 @@ export default function ProfilePage() {
       </div>
 
       <div style={{ marginTop: 48 }}><div className="section-header"><h2 className="section-title" style={{ fontSize: 22 }}>我的评分</h2></div>
-        <div>{profileRatings.map((pr) => { const m = movies.find((x) => x.id === pr.movieId); if (!m) return null; return <div key={pr.movieId} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 0", borderBottom: "1px solid var(--border-subtle)" }}><Link to={`/movies/${m.id}`}><img src={m.poster} style={{ width: 48, height: 72, objectFit: "cover", borderRadius: "var(--radius-sm)" }} alt={m.title} /></Link><div style={{ flex: 1 }}><Link to={`/movies/${m.id}`} style={{ fontWeight: 600, color: "var(--text-primary)", textDecoration: "none" }}>{m.title}</Link><div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{m.year} · {m.genres.join("/")}</div></div><div style={{ textAlign: "right" }}><div style={{ color: "var(--accent-gold)", fontSize: 16 }}>{"★".repeat(pr.rating)}{"☆".repeat(5 - pr.rating)}</div><div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{pr.date}</div></div></div>; })}</div>
+        <div>{ratings.map((item) => <div key={item.movieId} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 0", borderBottom: "1px solid var(--border-subtle)" }}><Link to={`/movies/${item.movieId}`}><img src={item.poster} style={{ width: 48, height: 72, objectFit: "cover", borderRadius: "var(--radius-sm)" }} alt={item.title} /></Link><div style={{ flex: 1 }}><Link to={`/movies/${item.movieId}`} style={{ fontWeight: 600, color: "var(--text-primary)", textDecoration: "none" }}>{item.title}</Link><div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{item.year}</div></div><div style={{ textAlign: "right" }}><div style={{ color: "var(--accent-gold)", fontSize: 16 }}>{"★".repeat(item.score)}{"☆".repeat(5 - item.score)}</div><div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{item.date}</div></div></div>)}</div>
       </div>
 
       <div style={{ marginTop: 48 }}><div className="section-header"><h2 className="section-title" style={{ fontSize: 22 }}>我的收藏</h2></div><div className="movie-grid">{favorites.map((m) => <MovieCard key={m.id} movie={m} />)}</div></div>
-      <div style={{ marginTop: 48 }}><div className="section-header"><h2 className="section-title" style={{ fontSize: 22 }}>偏好标签</h2></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{profileTags.map((t) => <div key={t.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--bg-elevated)", borderRadius: 20, border: "1px solid var(--border-subtle)" }}><span style={{ fontSize: 14, fontWeight: 500 }}>{t.name}</span><span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t.count}部</span></div>)}</div></div>
+      {ratings.length === 0 && favorites.length === 0 ? <div style={{ marginTop: 24, color: "var(--text-secondary)" }}>你还没有评分或收藏任何电影，去电影页试试看。</div> : null}
     </>
   );
 }

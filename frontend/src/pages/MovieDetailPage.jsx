@@ -11,6 +11,7 @@ export default function MovieDetailPage() {
   const [hoverRating, setHoverRating] = useState(0);
   const [savedText, setSavedText] = useState("");
   const [favorite, setFavorite] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -25,6 +26,24 @@ export default function MovieDetailPage() {
         setMovie(data);
         setRating(data.userRating || 0);
         setFavorite(Boolean(data.isFavorite));
+
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        Promise.all([
+          fetch("/api/me/ratings", { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal }),
+          fetch("/api/me/favorites", { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+        ])
+          .then(async ([ratingsRes, favoritesRes]) => {
+            if (!ratingsRes.ok || !favoritesRes.ok) return;
+            const ratings = await ratingsRes.json();
+            const favorites = await favoritesRes.json();
+            const mine = Array.isArray(ratings) ? ratings.find((x) => Number(x.movieId) === Number(id)) : null;
+            const isFav = Array.isArray(favorites) ? favorites.some((x) => Number(x.id) === Number(id)) : false;
+            if (mine?.score) setRating(mine.score);
+            setFavorite(isFav);
+          })
+          .catch(() => {});
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
@@ -34,10 +53,51 @@ export default function MovieDetailPage() {
     return () => controller.abort();
   }, [id]);
 
-  function rateMovie(n) {
-    setRating(n);
-    setSavedText("评分已保存");
-    setTimeout(() => setSavedText(""), 1500);
+  async function rateMovie(n) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setActionError("请先登录后再评分");
+      return;
+    }
+    setActionError("");
+    try {
+      const res = await fetch(`/api/movies/${id}/ratings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ score: n })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setRating(n);
+      setSavedText("评分已保存");
+      setTimeout(() => setSavedText(""), 1500);
+    } catch {
+      setActionError("评分保存失败，请稍后重试");
+    }
+  }
+
+  async function toggleFavorite() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setActionError("请先登录后再收藏");
+      return;
+    }
+    setActionError("");
+    const nextFavorite = !favorite;
+    try {
+      const res = await fetch(`/api/movies/${id}/favorite`, {
+        method: nextFavorite ? "POST" : "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setFavorite(nextFavorite);
+      setSavedText(nextFavorite ? "已加入收藏" : "已取消收藏");
+      setTimeout(() => setSavedText(""), 1500);
+    } catch {
+      setActionError("收藏状态更新失败，请稍后重试");
+    }
   }
 
   if (loading) {
@@ -56,7 +116,7 @@ export default function MovieDetailPage() {
         <div>
           <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}><img src={movie.poster} alt={movie.title} style={{ width: "100%", display: "block" }} /></div>
           <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-            <button className="btn btn-primary" style={{ flex: 1, background: favorite ? "var(--accent-crimson)" : undefined, borderColor: favorite ? "var(--accent-crimson)" : undefined }} onClick={() => setFavorite((v) => !v)}>{favorite ? "已收藏" : "收藏"}</button>
+            <button className="btn btn-primary" style={{ flex: 1, background: favorite ? "var(--accent-crimson)" : undefined, borderColor: favorite ? "var(--accent-crimson)" : undefined }} onClick={toggleFavorite}>{favorite ? "已收藏" : "收藏"}</button>
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => alert("分享链接已复制到剪贴板")}>分享</button>
           </div>
         </div>
@@ -82,6 +142,7 @@ export default function MovieDetailPage() {
               </div>
               <span style={{ fontSize: 14, color: "var(--text-muted)" }}>{(hoverRating || rating) ? `${hoverRating || rating} 星` : "点击星星评分"}{savedText ? ` — ${savedText}` : ""}</span>
             </div>
+            {actionError ? <div style={{ marginTop: 10, color: "#fca5a5", fontSize: 13 }}>{actionError}</div> : null}
           </div>
         </div>
       </div>
