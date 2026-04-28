@@ -1,8 +1,21 @@
-import { useMemo, useState } from "react";
-import { movies } from "../data/mockData";
+import { useEffect, useMemo, useState } from "react";
 
 export default function AdminPage() {
   const [tags, setTags] = useState(["科幻", "剧情", "动作", "悬疑", "爱情", "犯罪", "动画", "冒险", "惊悚", "战争", "历史", "传记", "奇幻", "喜剧"]);
+  const [movieRows, setMovieRows] = useState([]);
+  const [movieTotal, setMovieTotal] = useState(0);
+  const [moviePage, setMoviePage] = useState(1);
+  const [moviePageSize] = useState(10);
+  const [movieLoading, setMovieLoading] = useState(false);
+  const [movieError, setMovieError] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({ title: "", year: "", poster: "", tags: "", summary: "" });
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ title: "", year: "", poster: "", tags: "", summary: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
   const logs = useMemo(
     () => [
       { user: "user_1284", movie: "星际穿越", strategy: "标签偏好", score: 0.92, time: "2分钟前" },
@@ -31,6 +44,122 @@ export default function AdminPage() {
     { d: "周六", h: 95 },
     { d: "周日", h: 88 }
   ];
+
+  function loadMovies(page) {
+    setMovieLoading(true);
+    setMovieError("");
+    fetch(`/api/admin/movies?page=${page}&pageSize=${moviePageSize}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        setMovieRows(Array.isArray(data?.items) ? data.items : []);
+        setMovieTotal(Number(data?.total || 0));
+      })
+      .catch(() => setMovieError("加载电影管理数据失败，请稍后重试"))
+      .finally(() => setMovieLoading(false));
+  }
+
+  useEffect(() => {
+    loadMovies(moviePage);
+  }, [moviePage, moviePageSize]);
+
+  function updateCreateField(key, value) {
+    setCreateForm((old) => ({ ...old, [key]: value }));
+  }
+
+  function submitCreateMovie(e) {
+    e.preventDefault();
+    setCreateError("");
+    const yearNum = Number(createForm.year);
+    if (!createForm.title.trim()) {
+      setCreateError("请输入电影标题");
+      return;
+    }
+    if (!Number.isInteger(yearNum) || yearNum < 1888 || yearNum > 2100) {
+      setCreateError("请输入有效年份");
+      return;
+    }
+
+    setCreateSaving(true);
+    fetch("/api/admin/movies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: createForm.title.trim(),
+        year: yearNum,
+        poster: createForm.poster.trim(),
+        summary: createForm.summary.trim(),
+        tags: createForm.tags.split(",").map((x) => x.trim()).filter(Boolean)
+      })
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(() => {
+        setShowCreateForm(false);
+        setCreateForm({ title: "", year: "", poster: "", tags: "", summary: "" });
+        setMoviePage(1);
+        loadMovies(1);
+      })
+      .catch(() => setCreateError("新增电影失败，请稍后重试"))
+      .finally(() => setCreateSaving(false));
+  }
+
+  function openEditMovie(m) {
+    setEditError("");
+    setEditingId(m.id);
+    setEditForm({
+      title: m.title || "",
+      year: String(m.year || ""),
+      poster: m.poster || "",
+      tags: (m.genres || []).join(","),
+      summary: m.summary || ""
+    });
+  }
+
+  function updateEditField(key, value) {
+    setEditForm((old) => ({ ...old, [key]: value }));
+  }
+
+  function submitEditMovie(e) {
+    e.preventDefault();
+    if (!editingId) return;
+    setEditError("");
+    const yearNum = Number(editForm.year);
+    if (!editForm.title.trim()) {
+      setEditError("请输入电影标题");
+      return;
+    }
+    if (!Number.isInteger(yearNum) || yearNum < 1888 || yearNum > 2100) {
+      setEditError("请输入有效年份");
+      return;
+    }
+    setEditSaving(true);
+    fetch(`/api/admin/movies/${editingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: editForm.title.trim(),
+        year: yearNum,
+        poster: editForm.poster.trim(),
+        summary: editForm.summary.trim(),
+        tags: editForm.tags.split(",").map((x) => x.trim()).filter(Boolean)
+      })
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(() => {
+        setEditingId(null);
+        loadMovies(moviePage);
+      })
+      .catch(() => setEditError("编辑电影失败，请稍后重试"))
+      .finally(() => setEditSaving(false));
+  }
 
   return (
     <>
@@ -92,25 +221,52 @@ export default function AdminPage() {
       </div>
 
       <div className="card" style={{ overflow: "visible" }}>
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><h3 style={{ fontSize: 18 }}>电影管理</h3><button className="btn btn-primary btn-sm" onClick={() => alert("打开新增电影弹窗")}>+ 新增电影</button></div>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><h3 style={{ fontSize: 18 }}>电影管理</h3><button className="btn btn-primary btn-sm" onClick={() => setShowCreateForm((v) => !v)}>{showCreateForm ? "取消新增" : "+ 新增电影"}</button></div>
+        {showCreateForm ? (
+          <form onSubmit={submitCreateMovie} style={{ padding: "16px 24px", borderBottom: "1px solid var(--border-subtle)", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+            <input value={createForm.title} onChange={(e) => updateCreateField("title", e.target.value)} placeholder="标题（必填）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            <input value={createForm.year} onChange={(e) => updateCreateField("year", e.target.value)} placeholder="年份（如 2024）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            <input value={createForm.poster} onChange={(e) => updateCreateField("poster", e.target.value)} placeholder="海报 URL（可选）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            <input value={createForm.tags} onChange={(e) => updateCreateField("tags", e.target.value)} placeholder="标签，逗号分隔（如 科幻,剧情）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            <input value={createForm.summary} onChange={(e) => updateCreateField("summary", e.target.value)} placeholder="简介（可选）" style={{ gridColumn: "1 / -1", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+            {createError ? <div style={{ gridColumn: "1 / -1", color: "#fca5a5", fontSize: 13 }}>{createError}</div> : null}
+            <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}><button className="btn btn-primary btn-sm" type="submit" disabled={createSaving}>{createSaving ? "保存中..." : "提交新增"}</button></div>
+          </form>
+        ) : null}
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}><th style={{ textAlign: "left", padding: "14px 24px", color: "var(--text-muted)", fontWeight: 500, fontSize: 13 }}>ID</th><th style={{ textAlign: "left", padding: "14px 24px", color: "var(--text-muted)", fontWeight: 500, fontSize: 13 }}>电影</th><th style={{ textAlign: "left", padding: "14px 24px", color: "var(--text-muted)", fontWeight: 500, fontSize: 13 }}>年份</th><th style={{ textAlign: "left", padding: "14px 24px", color: "var(--text-muted)", fontWeight: 500, fontSize: 13 }}>标签</th><th style={{ textAlign: "left", padding: "14px 24px", color: "var(--text-muted)", fontWeight: 500, fontSize: 13 }}>评分</th><th style={{ textAlign: "left", padding: "14px 24px", color: "var(--text-muted)", fontWeight: 500, fontSize: 13 }}>操作</th></tr></thead>
             <tbody>
-              {movies.slice(0, 6).map((m) => (
+              {movieRows.map((m) => (
                 <tr key={m.id} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "var(--transition)" }}>
                   <td style={{ padding: "14px 24px", color: "var(--text-muted)", fontSize: 13 }}>{m.id}</td>
                   <td style={{ padding: "14px 24px" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><img src={m.poster} style={{ width: 32, height: 48, objectFit: "cover", borderRadius: 4 }} alt={m.title} /><div><div style={{ fontWeight: 500 }}>{m.title}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.originalTitle}</div></div></div></td>
                   <td style={{ padding: "14px 24px", color: "var(--text-secondary)" }}>{m.year}</td>
                   <td style={{ padding: "14px 24px" }}><div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{m.genres.map((g) => <span key={`${m.id}-${g}`} className="tag-pill">{g}</span>)}</div></td>
                   <td style={{ padding: "14px 24px", color: "var(--accent-gold)", fontWeight: 600 }}>{m.rating}</td>
-                  <td style={{ padding: "14px 24px" }}><div style={{ display: "flex", gap: 8 }}><button className="btn btn-ghost btn-sm">编辑</button><button className="btn btn-ghost btn-sm" style={{ color: "var(--accent-crimson)" }}>删除</button></div></td>
+                  <td style={{ padding: "14px 24px" }}><div style={{ display: "flex", gap: 8 }}><button className="btn btn-ghost btn-sm" onClick={() => openEditMovie(m)}>编辑</button><button className="btn btn-ghost btn-sm" style={{ color: "var(--accent-crimson)" }}>删除</button></div></td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {editingId ? (
+            <form onSubmit={submitEditMovie} style={{ padding: "16px 24px", borderTop: "1px solid var(--border-subtle)", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+              <input value={editForm.title} onChange={(e) => updateEditField("title", e.target.value)} placeholder="标题（必填）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+              <input value={editForm.year} onChange={(e) => updateEditField("year", e.target.value)} placeholder="年份（如 2024）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+              <input value={editForm.poster} onChange={(e) => updateEditField("poster", e.target.value)} placeholder="海报 URL（可选）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+              <input value={editForm.tags} onChange={(e) => updateEditField("tags", e.target.value)} placeholder="标签，逗号分隔（如 科幻,剧情）" style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+              <input value={editForm.summary} onChange={(e) => updateEditField("summary", e.target.value)} placeholder="简介（可选）" style={{ gridColumn: "1 / -1", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)" }} />
+              {editError ? <div style={{ gridColumn: "1 / -1", color: "#fca5a5", fontSize: 13 }}>{editError}</div> : null}
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditingId(null)} disabled={editSaving}>取消</button>
+                <button className="btn btn-primary btn-sm" type="submit" disabled={editSaving}>{editSaving ? "保存中..." : "提交编辑"}</button>
+              </div>
+            </form>
+          ) : null}
+          {movieLoading ? <div style={{ padding: "12px 24px", color: "var(--text-secondary)" }}>正在加载电影列表...</div> : null}
+          {movieError ? <div style={{ padding: "12px 24px", color: "#fca5a5" }}>{movieError}</div> : null}
         </div>
-        <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, color: "var(--text-muted)" }}>共 1,284 条记录</span><div style={{ display: "flex", gap: 8 }}><button className="btn btn-ghost btn-sm">上一页</button><button className="btn btn-ghost btn-sm">下一页</button></div></div>
+        <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, color: "var(--text-muted)" }}>共 {movieTotal} 条记录</span><div style={{ display: "flex", gap: 8 }}><button className="btn btn-ghost btn-sm" disabled={moviePage <= 1 || movieLoading} onClick={() => setMoviePage((p) => Math.max(1, p - 1))}>上一页</button><button className="btn btn-ghost btn-sm" disabled={movieLoading || moviePage * moviePageSize >= movieTotal} onClick={() => setMoviePage((p) => p + 1)}>下一页</button></div></div>
       </div>
     </>
   );
