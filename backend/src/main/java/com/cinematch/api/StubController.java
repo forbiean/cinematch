@@ -29,9 +29,6 @@ public class StubController {
     return Map.of("items", List.of(Map.of("movieId", 1, "title", "Interstellar", "score", 0.91, "reason", "你近期给高分的科幻与冒险标签影片较多")));
   }
 
-  @GetMapping("/me/profile")
-  public Map<String, Object> profile() { return Map.of("nickname", "Leo", "favorites", 18); }
-
   @PostMapping("/admin/movies")
   public Map<String, Object> adminCreate() { return Map.of("created", true); }
 
