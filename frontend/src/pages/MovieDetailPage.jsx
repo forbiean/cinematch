@@ -13,6 +13,8 @@ export default function MovieDetailPage() {
   const [savedText, setSavedText] = useState("");
   const [favorite, setFavorite] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [showShare, setShowShare] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,6 +103,30 @@ export default function MovieDetailPage() {
     }
   }
 
+  async function copyShareLink() {
+    const link = window.location.href;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const input = document.createElement("input");
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setShareCopied(true);
+      setTimeout(() => {
+        setShareCopied(false);
+        setShowShare(false);
+      }, 800);
+    } catch (err) {
+      setActionError("复制分享链接失败，请手动复制地址栏链接");
+      setShowShare(false);
+    }
+  }
+
   if (loading) {
     return <div style={{ padding: "40px 0", color: "var(--text-secondary)" }}>正在加载...</div>;
   }
@@ -118,7 +144,7 @@ export default function MovieDetailPage() {
           <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}><img src={movie.poster} alt={movie.title} style={{ width: "100%", display: "block" }} /></div>
           <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
             <button className="btn btn-primary" style={{ flex: 1, background: favorite ? "var(--accent-crimson)" : undefined, borderColor: favorite ? "var(--accent-crimson)" : undefined }} onClick={toggleFavorite}>{favorite ? "已收藏" : "收藏"}</button>
-            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => alert("分享链接已复制到剪贴板")}>分享</button>
+            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowShare(true)}>分享</button>
           </div>
         </div>
         <div>
@@ -147,6 +173,19 @@ export default function MovieDetailPage() {
         </div>
       </div>
       <div style={{ marginTop: 48 }}><div className="section-header"><h2 className="section-title" style={{ fontSize: 22 }}>相似推荐</h2></div><div className="movie-grid-lg">{similar.map((m) => <MovieCard key={m.id} movie={m} size="large" />)}</div></div>
+      {showShare ? (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(8, 10, 20, 0.72)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99, padding: 20 }}>
+          <div style={{ width: "min(500px, 100%)", background: "var(--bg-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "24px 22px", boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)" }}>
+            <h3 style={{ fontSize: 22 }}>分享电影</h3>
+            <p style={{ color: "var(--text-secondary)", marginTop: 6 }}>将当前电影链接发送给朋友。</p>
+            <div style={{ marginTop: 16, padding: "10px 12px", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", fontSize: 13, color: "var(--text-secondary)", wordBreak: "break-all" }}>{window.location.href}</div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowShare(false)}>关闭</button>
+              <button type="button" className="btn btn-primary" onClick={copyShareLink}>{shareCopied ? "已复制" : "复制链接"}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
