@@ -248,15 +248,15 @@ export default function AdminPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, marginBottom: 40 }}>
         <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 18, marginBottom: 20 }}>近7日评分趋势</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 180, paddingBottom: 8, position: "relative" }}>
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "var(--border-subtle)" }} />
+          <h3 style={{ fontSize: 18, marginBottom: 50 }}>近7日评分趋势</h3>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 300, position: "relative" }}>
+            <div style={{ position: "absolute", bottom: 24, left: 0, right: 0, height: 1, background: "var(--border-subtle)" }} />
             {(trend.length > 0 ? trend : [{ day: "-", pct: 0, count: 0 }]).map((t) => (
-              <div key={t.day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 8, height: "100%" }}>
-                <div style={{ width: "100%", height: 136, display: "flex", alignItems: "flex-end" }}>
+              <div key={t.day} style={{ flex: 1, height: "100%", display: "grid", gridTemplateRows: "1fr 24px", rowGap: 8 }}>
+                <div style={{ width: "100%", display: "flex", alignItems: "flex-end" }}>
                   <div title={`${t.day}：${t.count || 0} 条`} style={{ width: "100%", background: "linear-gradient(to top, var(--accent-gold), rgba(212,168,83,0.3))", borderRadius: "4px 4px 0 0", height: `${t.pct || 0}%` }} />
                 </div>
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t.day}</span>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", lineHeight: "24px" }}>{t.day}</div>
               </div>
             ))}
           </div>
