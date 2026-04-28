@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { parseApiError } from "../utils/api";
 
 export default function RegisterPage() {
   const nav = useNavigate();
@@ -37,8 +38,8 @@ export default function RegisterPage() {
         })
       });
       if (!res.ok) {
-        if (res.status === 409) throw new Error("该邮箱已注册");
-        throw new Error("注册失败，请稍后重试");
+        if (res.status === 409) throw new Error(await parseApiError(res, "该邮箱已注册"));
+        throw new Error(await parseApiError(res, "注册失败，请稍后重试"));
       }
       alert(`注册成功！欢迎加入 CineMatch，${form.nickname}`);
       nav("/login");

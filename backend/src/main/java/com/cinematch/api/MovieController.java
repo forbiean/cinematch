@@ -1,5 +1,6 @@
 package com.cinematch.api;
 
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,7 +42,7 @@ public class MovieController {
     @PostMapping("/movies/{id}/ratings")
     public RatingSaveResponse rateMovie(
             @PathVariable Long id,
-            @RequestBody RatingRequest request,
+            @Valid @RequestBody RatingRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         return movieActionService.rateMovie(id, request, authorization);

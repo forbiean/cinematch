@@ -1,5 +1,9 @@
 package com.cinematch.api;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -226,7 +230,11 @@ record AdminMovieItem(
 ) {}
 
 record AdminMovieCreateRequest(
+        @NotBlank(message = "title is required")
+        @Size(max = 200, message = "title is too long")
         String title,
+        @Min(value = 1888, message = "year is invalid")
+        @Max(value = 2100, message = "year is invalid")
         int year,
         String poster,
         String summary,
@@ -239,7 +247,10 @@ record AdminMovieCreateResponse(
 ) {}
 
 record AdminMovieUpdateRequest(
+        @Size(max = 200, message = "title is too long")
         String title,
+        @Min(value = 1888, message = "year is invalid")
+        @Max(value = 2100, message = "year is invalid")
         Integer year,
         String poster,
         String summary,

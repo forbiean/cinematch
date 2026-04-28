@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { parseApiError } from "../utils/api";
 
 export default function AdminPage() {
   const [tags, setTags] = useState(["科幻", "剧情", "动作", "悬疑", "爱情", "犯罪", "动画", "冒险", "惊悚", "战争", "历史", "传记", "奇幻", "喜剧"]);
@@ -46,18 +47,31 @@ export default function AdminPage() {
   ];
 
   function loadMovies(page) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setMovieRows([]);
+      setMovieTotal(0);
+      setMovieError("请先登录管理员账号");
+      return;
+    }
     setMovieLoading(true);
     setMovieError("");
-    fetch(`/api/admin/movies?page=${page}&pageSize=${moviePageSize}`)
+    fetch(`/api/admin/movies?page=${page}&pageSize=${moviePageSize}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
       .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限访问后台（仅管理员）");
+          return parseApiError(res, "加载电影管理数据失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
         return res.json();
       })
       .then((data) => {
         setMovieRows(Array.isArray(data?.items) ? data.items : []);
         setMovieTotal(Number(data?.total || 0));
       })
-      .catch(() => setMovieError("加载电影管理数据失败，请稍后重试"))
+      .catch((err) => setMovieError(err.message || "加载电影管理数据失败，请稍后重试"))
       .finally(() => setMovieLoading(false));
   }
 
@@ -83,9 +97,15 @@ export default function AdminPage() {
     }
 
     setCreateSaving(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setCreateSaving(false);
+      setCreateError("请先登录管理员账号");
+      return;
+    }
     fetch("/api/admin/movies", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         title: createForm.title.trim(),
         year: yearNum,
@@ -95,7 +115,11 @@ export default function AdminPage() {
       })
     })
       .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限新增电影（仅管理员）");
+          return parseApiError(res, "新增电影失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
         return res.json();
       })
       .then(() => {
@@ -104,7 +128,7 @@ export default function AdminPage() {
         setMoviePage(1);
         loadMovies(1);
       })
-      .catch(() => setCreateError("新增电影失败，请稍后重试"))
+      .catch((err) => setCreateError(err.message || "新增电影失败，请稍后重试"))
       .finally(() => setCreateSaving(false));
   }
 
@@ -138,9 +162,15 @@ export default function AdminPage() {
       return;
     }
     setEditSaving(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setEditSaving(false);
+      setEditError("请先登录管理员账号");
+      return;
+    }
     fetch(`/api/admin/movies/${editingId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         title: editForm.title.trim(),
         year: yearNum,
@@ -150,14 +180,18 @@ export default function AdminPage() {
       })
     })
       .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限编辑电影（仅管理员）");
+          return parseApiError(res, "编辑电影失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
         return res.json();
       })
       .then(() => {
         setEditingId(null);
         loadMovies(moviePage);
       })
-      .catch(() => setEditError("编辑电影失败，请稍后重试"))
+      .catch((err) => setEditError(err.message || "编辑电影失败，请稍后重试"))
       .finally(() => setEditSaving(false));
   }
 

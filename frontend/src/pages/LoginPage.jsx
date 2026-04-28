@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { parseApiError } from "../utils/api";
 
 export default function LoginPage() {
   const nav = useNavigate();
@@ -35,13 +36,14 @@ export default function LoginPage() {
         body: JSON.stringify({ email: email.trim(), password })
       });
       if (!res.ok) {
-        if (res.status === 401) throw new Error("邮箱或密码错误");
-        throw new Error("登录失败，请稍后重试");
+        if (res.status === 401) throw new Error(await parseApiError(res, "邮箱或密码错误"));
+        throw new Error(await parseApiError(res, "登录失败，请稍后重试"));
       }
       const data = await res.json();
       localStorage.setItem("token", data.token || "");
       localStorage.setItem("tokenType", data.tokenType || "Bearer");
       localStorage.setItem("userEmail", data.email || email.trim());
+      localStorage.setItem("userRole", data.role || "");
       nav("/");
     } catch (err) {
       setError(err.message || "登录失败，请稍后重试");

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import MovieCard from "../components/MovieCard";
+import { parseApiError } from "../utils/api";
 
 export default function MovieDetailPage() {
   const { id } = useParams();
@@ -69,12 +70,12 @@ export default function MovieDetailPage() {
         },
         body: JSON.stringify({ score: n })
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await parseApiError(res, "评分保存失败，请稍后重试"));
       setRating(n);
       setSavedText("评分已保存");
       setTimeout(() => setSavedText(""), 1500);
-    } catch {
-      setActionError("评分保存失败，请稍后重试");
+    } catch (err) {
+      setActionError(err.message || "评分保存失败，请稍后重试");
     }
   }
 
@@ -91,12 +92,12 @@ export default function MovieDetailPage() {
         method: nextFavorite ? "POST" : "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await parseApiError(res, "收藏状态更新失败，请稍后重试"));
       setFavorite(nextFavorite);
       setSavedText(nextFavorite ? "已加入收藏" : "已取消收藏");
       setTimeout(() => setSavedText(""), 1500);
-    } catch {
-      setActionError("收藏状态更新失败，请稍后重试");
+    } catch (err) {
+      setActionError(err.message || "收藏状态更新失败，请稍后重试");
     }
   }
 

@@ -1,5 +1,7 @@
 package com.cinematch.api;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -89,7 +91,11 @@ public class MovieActionService {
     }
 }
 
-record RatingRequest(int score) {}
+record RatingRequest(
+        @Min(value = 1, message = "score must be between 1 and 5")
+        @Max(value = 5, message = "score must be between 1 and 5")
+        int score
+) {}
 
 record RatingSaveResponse(Long movieId, int score, boolean saved) {}
 
