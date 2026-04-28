@@ -43,3 +43,6 @@ frontend/coverage/
 *.temp
 *.swp
 *~
+
+# Local backend secrets
+backend/src/main/resources/application-local.yml
