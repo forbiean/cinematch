@@ -256,14 +256,31 @@ public class AdminMovieService {
     }
 
     private void ensureMovieExtraColumns() {
-        jdbcTemplate.getJdbcTemplate().execute("""
-                ALTER TABLE movies
-                ADD COLUMN IF NOT EXISTS director VARCHAR(120) NULL
-                """);
-        jdbcTemplate.getJdbcTemplate().execute("""
-                ALTER TABLE movies
-                ADD COLUMN IF NOT EXISTS cast_text VARCHAR(500) NULL
-                """);
+        if (!columnExists("movies", "director")) {
+            jdbcTemplate.getJdbcTemplate().execute("""
+                    ALTER TABLE movies
+                    ADD COLUMN director VARCHAR(120) NULL
+                    """);
+        }
+        if (!columnExists("movies", "cast_text")) {
+            jdbcTemplate.getJdbcTemplate().execute("""
+                    ALTER TABLE movies
+                    ADD COLUMN cast_text VARCHAR(500) NULL
+                    """);
+        }
+    }
+
+    private boolean columnExists(String tableName, String columnName) {
+        Long count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = :tableName
+                  AND column_name = :columnName
+                """, new MapSqlParameterSource()
+                .addValue("tableName", tableName)
+                .addValue("columnName", columnName), Long.class);
+        return count != null && count > 0;
     }
 
     private String joinCast(List<String> cast) {
