@@ -6,6 +6,7 @@ import { movies, recommendations } from "../data/mockData";
 export default function HomePage() {
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
+  const isLoggedIn = Boolean(localStorage.getItem("token"));
   const recMovies = recommendations.slice(0, 5).map((r) => movies.find((m) => m.id === r.movieId)).filter(Boolean);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function HomePage() {
         <p style={{ fontSize: 18, color: "var(--text-secondary)", maxWidth: 520, margin: "20px auto 0", position: "relative", zIndex: 1 }}>基于你的口味，从数万部影片中精准推荐。评分越多，推荐越懂你。</p>
         <div style={{ marginTop: 32, display: "flex", gap: 12, justifyContent: "center", position: "relative", zIndex: 1 }}>
           <Link to="/movies" className="btn btn-primary">浏览电影</Link>
-          <Link to="/recommendations" className="btn btn-ghost">查看推荐</Link>
+          {isLoggedIn ? <Link to="/recommendations" className="btn btn-ghost">查看推荐</Link> : null}
         </div>
       </section>
 
@@ -46,10 +47,12 @@ export default function HomePage() {
         <div className="movie-grid-lg">{trending.map((m) => <MovieCard key={m.id} movie={m} size="large" />)}</div>
       </section>
 
-      <section className="mt-48">
-        <div className="section-header"><div><h2 className="section-title">为你推荐</h2><p className="section-sub">基于你的评分历史</p></div><Link to="/recommendations" style={{ color: "var(--accent-gold)", fontSize: 14, fontWeight: 500 }}>查看全部 →</Link></div>
-        <div className="movie-grid-lg">{recMovies.map((m) => <MovieCard key={m.id} movie={m} size="large" />)}</div>
-      </section>
+      {isLoggedIn ? (
+        <section className="mt-48">
+          <div className="section-header"><div><h2 className="section-title">为你推荐</h2><p className="section-sub">基于你的评分历史</p></div><Link to="/recommendations" style={{ color: "var(--accent-gold)", fontSize: 14, fontWeight: 500 }}>查看全部 →</Link></div>
+          <div className="movie-grid-lg">{recMovies.map((m) => <MovieCard key={m.id} movie={m} size="large" />)}</div>
+        </section>
+      ) : null}
 
       <section className="mt-48" style={{ background: "var(--bg-card)", borderRadius: "var(--radius-lg)", padding: 48, border: "1px solid var(--border-subtle)", textAlign: "center" }}>
         <h2 style={{ fontSize: 32 }}>开始记录你的观影旅程</h2>
