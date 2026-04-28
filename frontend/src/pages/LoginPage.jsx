@@ -44,6 +44,7 @@ export default function LoginPage() {
       localStorage.setItem("tokenType", data.tokenType || "Bearer");
       localStorage.setItem("userEmail", data.email || email.trim());
       localStorage.setItem("userRole", data.role || "");
+      window.dispatchEvent(new Event("auth-changed"));
       nav("/");
     } catch (err) {
       setError(err.message || "登录失败，请稍后重试");

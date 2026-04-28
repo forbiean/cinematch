@@ -52,6 +52,7 @@ export default function ProfilePage() {
     localStorage.removeItem("tokenType");
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userRole");
+    window.dispatchEvent(new Event("auth-changed"));
     nav("/login");
   }
 
