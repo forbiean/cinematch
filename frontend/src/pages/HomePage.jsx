@@ -37,7 +37,7 @@ export default function HomePage() {
         <p style={{ fontSize: 18, color: "var(--text-secondary)", maxWidth: 520, margin: "20px auto 0", position: "relative", zIndex: 1 }}>基于你的口味，从数万部影片中精准推荐。评分越多，推荐越懂你。</p>
         <div style={{ marginTop: 32, display: "flex", gap: 12, justifyContent: "center", position: "relative", zIndex: 1 }}>
           <Link to="/movies" className="btn btn-primary">浏览电影</Link>
-          {isLoggedIn ? <Link to="/recommendations" className="btn btn-ghost">查看推荐</Link> : null}
+          {isLoggedIn ? <Link to="/recommendations" className="btn btn-ghost">查看推荐</Link> : <Link to="/login" className="btn btn-ghost">立即登录</Link>}
         </div>
       </section>
 
