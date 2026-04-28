@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { parseApiError } from "../utils/api";
 
 export default function AdminPage() {
@@ -14,6 +14,13 @@ export default function AdminPage() {
   });
   const [trend, setTrend] = useState([]);
   const [hotTags, setHotTags] = useState([]);
+  const [recommendationOverview, setRecommendationOverview] = useState({
+    requestCount7d: 0,
+    avgResultCount7d: 0,
+    coldStartUsers7d: 0,
+    requestCountToday: 0
+  });
+  const [recommendationLogs, setRecommendationLogs] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState("");
   const [movieRows, setMovieRows] = useState([]);
@@ -30,17 +37,6 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState({ title: "", year: "", poster: "", tags: "", summary: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
-  const logs = useMemo(
-    () => [
-      { user: "user_1284", movie: "星际穿越", strategy: "标签偏好", score: 0.92, time: "2分钟前" },
-      { user: "user_0892", movie: "盗梦空间", strategy: "协同过滤", score: 0.88, time: "5分钟前" },
-      { user: "user_2103", movie: "千与千寻", strategy: "热门加权", score: 0.85, time: "12分钟前" },
-      { user: "user_0567", movie: "肖申克的救赎", strategy: "标签偏好", score: 0.91, time: "18分钟前" },
-      { user: "user_3401", movie: "阿甘正传", strategy: "冷启动", score: 0.78, time: "25分钟前" }
-    ],
-    []
-  );
-
   function loadDashboard() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -73,6 +69,14 @@ export default function AdminPage() {
         });
         setTrend(Array.isArray(data?.trend) ? data.trend : []);
         setHotTags(Array.isArray(data?.hotTags) ? data.hotTags : []);
+        const ro = data?.recommendationOverview || {};
+        setRecommendationOverview({
+          requestCount7d: Number(ro.requestCount7d || 0),
+          avgResultCount7d: Number(ro.avgResultCount7d || 0),
+          coldStartUsers7d: Number(ro.coldStartUsers7d || 0),
+          requestCountToday: Number(ro.requestCountToday || 0)
+        });
+        setRecommendationLogs(Array.isArray(data?.recommendationLogs) ? data.recommendationLogs : []);
       })
       .catch((err) => setDashboardError(err.message || "加载后台概览失败，请稍后重试"))
       .finally(() => setDashboardLoading(false));
@@ -280,11 +284,17 @@ export default function AdminPage() {
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)" }}><h3 style={{ fontSize: 18 }}>推荐效果概览</h3></div>
         <div style={{ padding: 24 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20, marginBottom: 24 }}>
-            {["8.4%", "4.2", "62", "312ms"].map((v, i) => <div key={v} style={{ textAlign: "center", padding: 20, background: "var(--bg-elevated)", borderRadius: "var(--radius-md)" }}><div style={{ fontSize: 32, fontWeight: 700, color: "var(--accent-gold)", fontFamily: "'Playfair Display', serif" }}>{v}</div><div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>{["推荐点击率", "平均推荐评分", "冷启动用户", "推荐接口耗时"][i]}</div></div>)}
+            {[
+              { value: recommendationOverview.requestCount7d, label: "近7日推荐请求" },
+              { value: recommendationOverview.avgResultCount7d.toFixed(2), label: "平均返回条数" },
+              { value: recommendationOverview.coldStartUsers7d, label: "近7日冷启动用户" },
+              { value: recommendationOverview.requestCountToday, label: "今日推荐请求" }
+            ].map((v) => <div key={v.label} style={{ textAlign: "center", padding: 20, background: "var(--bg-elevated)", borderRadius: "var(--radius-md)" }}><div style={{ fontSize: 32, fontWeight: 700, color: "var(--accent-gold)", fontFamily: "'Playfair Display', serif" }}>{v.value}</div><div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>{v.label}</div></div>)}
           </div>
           <h4 style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 12 }}>最近推荐记录</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {logs.map((log) => <div key={`${log.user}-${log.movie}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)" }}><div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 13, color: "var(--text-muted)", width: 80 }}>{log.user}</span><span style={{ fontSize: 14, fontWeight: 500 }}>{log.movie}</span><span className="tag-pill">{log.strategy}</span></div><div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 13, color: "var(--accent-gold)", fontWeight: 600 }}>匹配度 {Math.round(log.score * 100)}%</span><span style={{ fontSize: 12, color: "var(--text-muted)" }}>{log.time}</span></div></div>)}
+            {(recommendationLogs.length > 0 ? recommendationLogs : []).map((log, idx) => <div key={`${log.user}-${log.time}-${idx}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)" }}><div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 13, color: "var(--text-muted)", width: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.user}</span><span className="tag-pill">{log.strategy}</span></div><div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 13, color: "var(--accent-gold)", fontWeight: 600 }}>返回 {log.resultCount} 条</span><span style={{ fontSize: 12, color: "var(--text-muted)" }}>{String(log.time || "").replace("T", " ").slice(0, 19)}</span></div></div>)}
+            {recommendationLogs.length === 0 ? <div style={{ padding: "12px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", fontSize: 13 }}>暂无推荐日志，先使用一次推荐功能后这里会显示记录。</div> : null}
           </div>
         </div>
       </div>

@@ -34,20 +34,25 @@ public class RecommendationService {
         List<RecommendationCandidate> candidates = loadCandidates(userId);
         fillTags(candidates);
 
+        RecommendationsResponse response;
         if (candidates.isEmpty()) {
-            return new RecommendationsResponse(List.of(), "标签偏好 + 热门加权");
+            response = new RecommendationsResponse(List.of(), "标签偏好 + 热门加权");
+            saveRecommendationLog(userId, response.strategy(), response.items().size());
+            return response;
         }
 
         if (preferredTags.isEmpty()) {
             List<RecommendationItem> coldStart = candidates.stream()
                     .sorted(Comparator
                             .comparing(RecommendationCandidate::ratingCount).reversed()
-                            .thenComparing(RecommendationCandidate::rating, Comparator.reverseOrder())
-                            .thenComparing(RecommendationCandidate::id, Comparator.reverseOrder()))
+                    .thenComparing(RecommendationCandidate::rating, Comparator.reverseOrder())
+                    .thenComparing(RecommendationCandidate::id, Comparator.reverseOrder()))
                     .limit(10)
                     .map(c -> toItem(c, BigDecimal.valueOf(0.60), "冷启动：热门高分影片"))
                     .toList();
-            return new RecommendationsResponse(coldStart, "冷启动热门");
+            response = new RecommendationsResponse(coldStart, "冷启动热门");
+            saveRecommendationLog(userId, response.strategy(), response.items().size());
+            return response;
         }
 
         int maxTagScore = 1;
@@ -77,7 +82,19 @@ public class RecommendationService {
                 .map(c -> toItem(c, scoreFor(c, maxTagScoreFinal), reasonFor(c, preferredTags)))
                 .toList();
 
-        return new RecommendationsResponse(items, "标签偏好 + 热门加权");
+        response = new RecommendationsResponse(items, "标签偏好 + 热门加权");
+        saveRecommendationLog(userId, response.strategy(), response.items().size());
+        return response;
+    }
+
+    private void saveRecommendationLog(Long userId, String strategy, int resultCount) {
+        jdbcTemplate.update("""
+                INSERT INTO recommendation_logs(user_id, strategy, result_count)
+                VALUES(:userId, :strategy, :resultCount)
+                """, new MapSqlParameterSource()
+                .addValue("userId", userId)
+                .addValue("strategy", strategy == null ? "" : strategy)
+                .addValue("resultCount", Math.max(resultCount, 0)));
     }
 
     private RecommendationItem toItem(RecommendationCandidate c, BigDecimal score, String reason) {

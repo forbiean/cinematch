@@ -61,6 +61,8 @@ public class AdminDashboardService {
 
         List<AdminDailyTrendItem> trend = buildTrend();
         List<AdminHotTagItem> hotTags = buildHotTags();
+        AdminRecommendationOverview recommendationOverview = buildRecommendationOverview();
+        List<AdminRecommendationLogItem> recommendationLogs = buildRecommendationLogs();
 
         return new AdminDashboardResponse(
                 new AdminOverview(
@@ -73,7 +75,9 @@ public class AdminDashboardService {
                         favoriteRate
                 ),
                 trend,
-                hotTags
+                hotTags,
+                recommendationOverview,
+                recommendationLogs
         );
     }
 
@@ -143,6 +147,52 @@ public class AdminDashboardService {
         return tags;
     }
 
+    private AdminRecommendationOverview buildRecommendationOverview() {
+        long requestCount7d = getLong("""
+                SELECT COUNT(*)
+                FROM recommendation_logs
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                """);
+        long requestCountToday = getLong("""
+                SELECT COUNT(*)
+                FROM recommendation_logs
+                WHERE DATE(created_at) = CURRENT_DATE()
+                """);
+        BigDecimal avgResultCount7d = jdbcTemplate.queryForObject("""
+                SELECT COALESCE(ROUND(AVG(result_count), 2), 0.0)
+                FROM recommendation_logs
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                """, new MapSqlParameterSource(), BigDecimal.class);
+        long coldStartUsers7d = getLong("""
+                SELECT COUNT(DISTINCT user_id)
+                FROM recommendation_logs
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                  AND strategy LIKE '冷启动%%'
+                """);
+
+        return new AdminRecommendationOverview(
+                requestCount7d,
+                avgResultCount7d == null ? BigDecimal.ZERO : avgResultCount7d,
+                coldStartUsers7d,
+                requestCountToday
+        );
+    }
+
+    private List<AdminRecommendationLogItem> buildRecommendationLogs() {
+        return jdbcTemplate.query("""
+                SELECT u.email, rl.strategy, rl.result_count, rl.created_at
+                FROM recommendation_logs rl
+                JOIN users u ON u.id = rl.user_id
+                ORDER BY rl.created_at DESC, rl.id DESC
+                LIMIT 10
+                """, new MapSqlParameterSource(), (rs, rowNum) -> new AdminRecommendationLogItem(
+                rs.getString("email"),
+                rs.getString("strategy"),
+                rs.getInt("result_count"),
+                rs.getTimestamp("created_at").toLocalDateTime().toString()
+        ));
+    }
+
     private long getLong(String sql) {
         Long value = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource(), Long.class);
         return value == null ? 0 : value;
@@ -164,7 +214,9 @@ public class AdminDashboardService {
 record AdminDashboardResponse(
         AdminOverview overview,
         List<AdminDailyTrendItem> trend,
-        List<AdminHotTagItem> hotTags
+        List<AdminHotTagItem> hotTags,
+        AdminRecommendationOverview recommendationOverview,
+        List<AdminRecommendationLogItem> recommendationLogs
 ) {}
 
 record AdminOverview(
@@ -187,4 +239,18 @@ record AdminHotTagItem(
         String name,
         long count,
         BigDecimal pct
+) {}
+
+record AdminRecommendationOverview(
+        long requestCount7d,
+        BigDecimal avgResultCount7d,
+        long coldStartUsers7d,
+        long requestCountToday
+) {}
+
+record AdminRecommendationLogItem(
+        String user,
+        String strategy,
+        int resultCount,
+        String time
 ) {}
