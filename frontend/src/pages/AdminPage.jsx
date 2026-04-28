@@ -3,6 +3,19 @@ import { parseApiError } from "../utils/api";
 
 export default function AdminPage() {
   const [tags, setTags] = useState(["科幻", "剧情", "动作", "悬疑", "爱情", "犯罪", "动画", "冒险", "惊悚", "战争", "历史", "传记", "奇幻", "喜剧"]);
+  const [overview, setOverview] = useState({
+    movieTotal: 0,
+    weekNewMovies: 0,
+    userTotal: 0,
+    weekNewUsers: 0,
+    todayRatings: 0,
+    todayRatingsDeltaPct: 0,
+    favoriteRate: 0
+  });
+  const [trend, setTrend] = useState([]);
+  const [hotTags, setHotTags] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState("");
   const [movieRows, setMovieRows] = useState([]);
   const [movieTotal, setMovieTotal] = useState(0);
   const [moviePage, setMoviePage] = useState(1);
@@ -28,23 +41,42 @@ export default function AdminPage() {
     []
   );
 
-  const hotTags = [
-    { name: "科幻", pct: 32 },
-    { name: "剧情", pct: 28 },
-    { name: "动作", pct: 18 },
-    { name: "悬疑", pct: 12 },
-    { name: "爱情", pct: 10 }
-  ];
-
-  const trend = [
-    { d: "周一", h: 45 },
-    { d: "周二", h: 62 },
-    { d: "周三", h: 55 },
-    { d: "周四", h: 80 },
-    { d: "周五", h: 70 },
-    { d: "周六", h: 95 },
-    { d: "周日", h: 88 }
-  ];
+  function loadDashboard() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setDashboardError("请先登录管理员账号");
+      return;
+    }
+    setDashboardLoading(true);
+    setDashboardError("");
+    fetch("/api/admin/dashboard", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("请先登录");
+          if (res.status === 403) throw new Error("无权限访问后台（仅管理员）");
+          return parseApiError(res, "加载后台概览失败，请稍后重试").then((msg) => { throw new Error(msg); });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        const o = data?.overview || {};
+        setOverview({
+          movieTotal: Number(o.movieTotal || 0),
+          weekNewMovies: Number(o.weekNewMovies || 0),
+          userTotal: Number(o.userTotal || 0),
+          weekNewUsers: Number(o.weekNewUsers || 0),
+          todayRatings: Number(o.todayRatings || 0),
+          todayRatingsDeltaPct: Number(o.todayRatingsDeltaPct || 0),
+          favoriteRate: Number(o.favoriteRate || 0)
+        });
+        setTrend(Array.isArray(data?.trend) ? data.trend : []);
+        setHotTags(Array.isArray(data?.hotTags) ? data.hotTags : []);
+      })
+      .catch((err) => setDashboardError(err.message || "加载后台概览失败，请稍后重试"))
+      .finally(() => setDashboardLoading(false));
+  }
 
   function loadMovies(page) {
     const token = localStorage.getItem("token");
@@ -74,6 +106,10 @@ export default function AdminPage() {
       .catch((err) => setMovieError(err.message || "加载电影管理数据失败，请稍后重试"))
       .finally(() => setMovieLoading(false));
   }
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   useEffect(() => {
     loadMovies(moviePage);
@@ -201,23 +237,26 @@ export default function AdminPage() {
         <h1 className="section-title">后台管理</h1>
         <p className="section-sub">数据概览与内容运营</p>
       </div>
+      {dashboardError ? <div style={{ color: "#fca5a5", marginBottom: 16 }}>{dashboardError}</div> : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 40 }}>
-        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>电影总数</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>1,284</div><div style={{ fontSize: 12, color: "#4ade80", marginTop: 8 }}>↑ 本周新增 12 部</div></div>
-        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>注册用户</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>3,672</div><div style={{ fontSize: 12, color: "#4ade80", marginTop: 8 }}>↑ 本周新增 89 人</div></div>
-        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>今日评分</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>156</div><div style={{ fontSize: 12, color: "#4ade80", marginTop: 8 }}>↑ 较昨日 +23%</div></div>
-        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>收藏率</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>24.8%</div><div style={{ fontSize: 12, color: "#f87171", marginTop: 8 }}>↓ 较上周 -1.2%</div></div>
+        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>电影总数</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{overview.movieTotal.toLocaleString()}</div><div style={{ fontSize: 12, color: "#4ade80", marginTop: 8 }}>本周新增 {overview.weekNewMovies} 部</div></div>
+        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>注册用户</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{overview.userTotal.toLocaleString()}</div><div style={{ fontSize: 12, color: "#4ade80", marginTop: 8 }}>本周新增 {overview.weekNewUsers} 人</div></div>
+        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>今日评分</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{overview.todayRatings.toLocaleString()}</div><div style={{ fontSize: 12, color: overview.todayRatingsDeltaPct >= 0 ? "#4ade80" : "#f87171", marginTop: 8 }}>{overview.todayRatingsDeltaPct >= 0 ? "↑" : "↓"} 较昨日 {overview.todayRatingsDeltaPct >= 0 ? "+" : ""}{overview.todayRatingsDeltaPct.toFixed(1)}%</div></div>
+        <div className="card" style={{ padding: 24 }}><div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>收藏率</div><div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{overview.favoriteRate.toFixed(1)}%</div><div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 8 }}>有收藏行为用户占比</div></div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, marginBottom: 40 }}>
         <div className="card" style={{ padding: 24 }}>
           <h3 style={{ fontSize: 18, marginBottom: 20 }}>近7日评分趋势</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 160, paddingBottom: 24, position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 180, paddingBottom: 8, position: "relative" }}>
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "var(--border-subtle)" }} />
-            {trend.map((t) => (
-              <div key={t.d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <div style={{ width: "100%", background: "linear-gradient(to top, var(--accent-gold), rgba(212,168,83,0.3))", borderRadius: "4px 4px 0 0", height: `${t.h}%` }} />
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t.d}</span>
+            {(trend.length > 0 ? trend : [{ day: "-", pct: 0, count: 0 }]).map((t) => (
+              <div key={t.day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 8, height: "100%" }}>
+                <div style={{ width: "100%", height: 136, display: "flex", alignItems: "flex-end" }}>
+                  <div title={`${t.day}：${t.count || 0} 条`} style={{ width: "100%", background: "linear-gradient(to top, var(--accent-gold), rgba(212,168,83,0.3))", borderRadius: "4px 4px 0 0", height: `${t.pct || 0}%` }} />
+                </div>
+                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t.day}</span>
               </div>
             ))}
           </div>
@@ -226,15 +265,16 @@ export default function AdminPage() {
         <div className="card" style={{ padding: 24 }}>
           <h3 style={{ fontSize: 18, marginBottom: 20 }}>热门标签</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {hotTags.map((t) => (
+            {(hotTags.length > 0 ? hotTags : [{ name: "暂无数据", pct: 0, count: 0 }]).map((t) => (
               <div key={t.name}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}><span>{t.name}</span><span style={{ color: "var(--text-muted)" }}>{t.pct}%</span></div>
-                <div style={{ height: 6, background: "var(--bg-elevated)", borderRadius: 3, overflow: "hidden" }}><div style={{ width: `${t.pct}%`, height: "100%", background: "var(--accent-gold)", borderRadius: 3 }} /></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}><span>{t.name}</span><span style={{ color: "var(--text-muted)" }}>{Number(t.pct || 0).toFixed(1)}% · {t.count || 0}</span></div>
+                <div style={{ height: 6, background: "var(--bg-elevated)", borderRadius: 3, overflow: "hidden" }}><div style={{ width: `${Math.min(100, Number(t.pct || 0))}%`, height: "100%", background: "var(--accent-gold)", borderRadius: 3 }} /></div>
               </div>
             ))}
           </div>
         </div>
       </div>
+      {dashboardLoading ? <div style={{ color: "var(--text-secondary)", marginBottom: 20 }}>正在加载概览数据...</div> : null}
 
       <div className="card" style={{ marginBottom: 40 }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)" }}><h3 style={{ fontSize: 18 }}>推荐效果概览</h3></div>

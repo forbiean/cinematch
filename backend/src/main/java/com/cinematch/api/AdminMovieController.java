@@ -16,11 +16,25 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminMovieController {
 
     private final AdminMovieService adminMovieService;
+    private final AdminDashboardService adminDashboardService;
     private final AdminAuthService adminAuthService;
 
-    public AdminMovieController(AdminMovieService adminMovieService, AdminAuthService adminAuthService) {
+    public AdminMovieController(
+            AdminMovieService adminMovieService,
+            AdminDashboardService adminDashboardService,
+            AdminAuthService adminAuthService
+    ) {
         this.adminMovieService = adminMovieService;
+        this.adminDashboardService = adminDashboardService;
         this.adminAuthService = adminAuthService;
+    }
+
+    @GetMapping("/dashboard")
+    public AdminDashboardResponse dashboard(
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        adminAuthService.requireAdmin(authorization);
+        return adminDashboardService.getDashboard();
     }
 
     @GetMapping("/movies")
