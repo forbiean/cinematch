@@ -27,16 +27,18 @@ public class AuthService {
     }
 
     public RegisterResponse register(RegisterRequest request) {
+        ensureNicknameColumn();
         GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
         MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("nickname", request.nickname().trim())
                 .addValue("email", request.email().trim().toLowerCase())
                 .addValue("passwordHash", passwordEncoder.encode(request.password()))
                 .addValue("role", "USER");
 
         try {
             jdbcTemplate.update("""
-                    INSERT INTO users(email, password_hash, role)
-                    VALUES (:email, :passwordHash, :role)
+                    INSERT INTO users(nickname, email, password_hash, role)
+                    VALUES (:nickname, :email, :passwordHash, :role)
                     """, params, keyHolder, new String[]{"id"});
         } catch (DuplicateKeyException ex) {
             throw new ResponseStatusException(CONFLICT, "email already registered");
@@ -72,6 +74,22 @@ public class AuthService {
 
         String token = jwtService.issueToken(user.id(), user.email(), user.role());
         return new LoginResponse(token, "Bearer", jwtService.getExpireSeconds(), user.id(), user.email(), user.role());
+    }
+
+    private void ensureNicknameColumn() {
+        Long count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'users'
+                  AND column_name = 'nickname'
+                """, new MapSqlParameterSource(), Long.class);
+        if (count == null || count == 0) {
+            jdbcTemplate.getJdbcTemplate().execute("""
+                    ALTER TABLE users
+                    ADD COLUMN nickname VARCHAR(80) NULL
+                    """);
+        }
     }
 }
 

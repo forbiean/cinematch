@@ -2,6 +2,8 @@ package com.cinematch.api;
 
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -23,6 +25,7 @@ public class MeService {
 
     private final JwtService jwtService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public MeService(JwtService jwtService, NamedParameterJdbcTemplate jdbcTemplate) {
         this.jwtService = jwtService;
@@ -30,17 +33,19 @@ public class MeService {
     }
 
     public MeProfileResponse profile(String authorization) {
+        ensureNicknameColumn();
         Map<String, Object> claims = parseClaims(authorization);
         Long userId = ((Number) claims.get("userId")).longValue();
         String email = String.valueOf(claims.getOrDefault("sub", ""));
 
         List<UserProfileRow> rows = jdbcTemplate.query("""
-                SELECT id, email, created_at
+                SELECT id, nickname, email, created_at
                 FROM users
                 WHERE id = :id
                 LIMIT 1
                 """, new MapSqlParameterSource("id", userId), (rs, rowNum) -> new UserProfileRow(
                 rs.getLong("id"),
+                rs.getString("nickname"),
                 rs.getString("email"),
                 rs.getTimestamp("created_at").toLocalDateTime()
         ));
@@ -70,7 +75,9 @@ public class MeService {
                 LIMIT 1
                 """, new MapSqlParameterSource("id", userId), rs -> rs.next() ? rs.getString("tag") : "暂无");
 
-        String nickname = deriveNickname(email.isBlank() ? user.email() : email);
+        String nickname = user.nickname() == null || user.nickname().isBlank()
+                ? deriveNickname(email.isBlank() ? user.email() : email)
+                : user.nickname().trim();
         String joinAt = user.createdAt().format(MONTH_FMT);
         return new MeProfileResponse(
                 user.id(),
@@ -124,6 +131,50 @@ public class MeService {
         return items;
     }
 
+    public MeProfileUpdateResponse updateProfile(String authorization, MeProfileUpdateRequest request) {
+        ensureNicknameColumn();
+        Long userId = extractUserId(authorization);
+        if (request == null) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "request is required");
+        }
+        String nickname = request.nickname() == null ? "" : request.nickname().trim();
+        String password = request.password() == null ? "" : request.password();
+        if (nickname.isEmpty() && password.isEmpty()) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "no fields to update");
+        }
+        if (!password.isEmpty() && password.length() < 8) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "password length must be at least 8");
+        }
+
+        String currentNickname = jdbcTemplate.queryForObject(
+                "SELECT nickname FROM users WHERE id = :id",
+                new MapSqlParameterSource("id", userId),
+                String.class
+        );
+        String nextNickname = nickname.isEmpty() ? (currentNickname == null ? "" : currentNickname) : nickname;
+
+        if (password.isEmpty()) {
+            jdbcTemplate.update("""
+                    UPDATE users
+                    SET nickname = :nickname
+                    WHERE id = :id
+                    """, new MapSqlParameterSource()
+                    .addValue("id", userId)
+                    .addValue("nickname", nextNickname));
+        } else {
+            jdbcTemplate.update("""
+                    UPDATE users
+                    SET nickname = :nickname,
+                        password_hash = :passwordHash
+                    WHERE id = :id
+                    """, new MapSqlParameterSource()
+                    .addValue("id", userId)
+                    .addValue("nickname", nextNickname)
+                    .addValue("passwordHash", passwordEncoder.encode(password)));
+        }
+        return new MeProfileUpdateResponse(true, "资料已更新");
+    }
+
     private Long extractUserId(String authorization) {
         Map<String, Object> claims = parseClaims(authorization);
         return ((Number) claims.get("userId")).longValue();
@@ -152,6 +203,22 @@ public class MeService {
             return "用户";
         }
         return name;
+    }
+
+    private void ensureNicknameColumn() {
+        Long count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'users'
+                  AND column_name = 'nickname'
+                """, new MapSqlParameterSource(), Long.class);
+        if (count == null || count == 0) {
+            jdbcTemplate.getJdbcTemplate().execute("""
+                    ALTER TABLE users
+                    ADD COLUMN nickname VARCHAR(80) NULL
+                    """);
+        }
     }
 
     private String normalizePoster(String posterUrl) {
@@ -197,7 +264,7 @@ record MeProfileResponse(
         String favoriteGenre
 ) {}
 
-record UserProfileRow(Long id, String email, LocalDateTime createdAt) {}
+record UserProfileRow(Long id, String nickname, String email, LocalDateTime createdAt) {}
 
 record StatsRow(int ratedCount, int favoriteCount, BigDecimal avgScore) {}
 
@@ -208,4 +275,14 @@ record MyRatingItem(
         String poster,
         int score,
         String date
+) {}
+
+record MeProfileUpdateRequest(
+        String nickname,
+        String password
+) {}
+
+record MeProfileUpdateResponse(
+        boolean updated,
+        String message
 ) {}
