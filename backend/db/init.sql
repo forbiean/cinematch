@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS movies (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   title VARCHAR(200) NOT NULL,
   summary TEXT,
+  director VARCHAR(120),
+  cast_text VARCHAR(500),
   release_year INT,
   poster_url VARCHAR(500),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -33,16 +33,17 @@ public class AdminMovieService {
     }
 
     public AdminMoviesPageResponse listMovies(int page, int pageSize) {
+        ensureMovieExtraColumns();
         int safePageSize = Math.min(Math.max(pageSize, 1), 50);
         int safePage = Math.max(page, 1);
         int offset = (safePage - 1) * safePageSize;
 
         Long total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM movies", new MapSqlParameterSource(), Long.class);
         List<AdminMovieItem> items = jdbcTemplate.query("""
-                SELECT m.id, m.title, m.summary, m.release_year, m.poster_url, COALESCE(ROUND(AVG(r.score), 1), 0.0) AS rating
+                SELECT m.id, m.title, m.summary, m.release_year, m.poster_url, m.director, m.cast_text, COALESCE(ROUND(AVG(r.score), 1), 0.0) AS rating
                 FROM movies m
                 LEFT JOIN ratings r ON r.movie_id = m.id
-                GROUP BY m.id, m.title, m.summary, m.release_year, m.poster_url
+                GROUP BY m.id, m.title, m.summary, m.release_year, m.poster_url, m.director, m.cast_text
                 ORDER BY m.id DESC
                 LIMIT :limit OFFSET :offset
                 """, new MapSqlParameterSource()
@@ -54,6 +55,8 @@ public class AdminMovieService {
                 rs.getInt("release_year"),
                 normalizePoster(rs.getString("poster_url")),
                 rs.getString("summary") == null ? "" : rs.getString("summary"),
+                rs.getString("director") == null ? "" : rs.getString("director"),
+                parseCast(rs.getString("cast_text")),
                 rs.getBigDecimal("rating"),
                 new ArrayList<>()
         ));
@@ -63,6 +66,7 @@ public class AdminMovieService {
     }
 
     public AdminMovieCreateResponse createMovie(AdminMovieCreateRequest request) {
+        ensureMovieExtraColumns();
         if (request == null || request.title() == null || request.title().trim().isEmpty()) {
             throw new ResponseStatusException(BAD_REQUEST, "title is required");
         }
@@ -86,6 +90,16 @@ public class AdminMovieService {
         }
         long movieId = key.longValue();
 
+        jdbcTemplate.update("""
+                UPDATE movies
+                SET director = :director,
+                    cast_text = :castText
+                WHERE id = :id
+                """, new MapSqlParameterSource()
+                .addValue("id", movieId)
+                .addValue("director", request.director() == null ? "" : request.director().trim())
+                .addValue("castText", joinCast(request.cast())));
+
         List<String> tags = request.tags() == null ? List.of() : request.tags().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
@@ -104,6 +118,7 @@ public class AdminMovieService {
     }
 
     public AdminMovieUpdateResponse updateMovie(Long id, AdminMovieUpdateRequest request) {
+        ensureMovieExtraColumns();
         List<Long> exists = jdbcTemplate.queryForList(
                 "SELECT id FROM movies WHERE id = :id LIMIT 1",
                 new MapSqlParameterSource("id", id),
@@ -142,20 +157,34 @@ public class AdminMovieService {
                 new MapSqlParameterSource("id", id),
                 String.class
         );
+        String currentDirector = jdbcTemplate.queryForObject(
+                "SELECT director FROM movies WHERE id = :id",
+                new MapSqlParameterSource("id", id),
+                String.class
+        );
+        String currentCastText = jdbcTemplate.queryForObject(
+                "SELECT cast_text FROM movies WHERE id = :id",
+                new MapSqlParameterSource("id", id),
+                String.class
+        );
 
         jdbcTemplate.update("""
                 UPDATE movies
                 SET title = :title,
                     release_year = :year,
                     poster_url = :poster,
-                    summary = :summary
+                    summary = :summary,
+                    director = :director,
+                    cast_text = :castText
                 WHERE id = :id
                 """, new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("title", request.title() == null ? currentTitle : request.title().trim())
                 .addValue("year", request.year() == null ? currentYear : request.year())
                 .addValue("poster", request.poster() == null ? currentPoster : request.poster().trim())
-                .addValue("summary", request.summary() == null ? currentSummary : request.summary().trim()));
+                .addValue("summary", request.summary() == null ? currentSummary : request.summary().trim())
+                .addValue("director", request.director() == null ? currentDirector : request.director().trim())
+                .addValue("castText", request.cast() == null ? currentCastText : joinCast(request.cast())));
 
         if (request.tags() != null) {
             List<String> tags = request.tags().stream()
@@ -176,6 +205,22 @@ public class AdminMovieService {
         }
 
         return new AdminMovieUpdateResponse(id, true);
+    }
+
+    public AdminMovieDeleteResponse deleteMovie(Long id) {
+        List<Long> exists = jdbcTemplate.queryForList(
+                "SELECT id FROM movies WHERE id = :id LIMIT 1",
+                new MapSqlParameterSource("id", id),
+                Long.class
+        );
+        if (exists.isEmpty()) {
+            throw new ResponseStatusException(NOT_FOUND, "movie not found");
+        }
+        int affected = jdbcTemplate.update(
+                "DELETE FROM movies WHERE id = :id",
+                new MapSqlParameterSource("id", id)
+        );
+        return new AdminMovieDeleteResponse(id, affected > 0);
     }
 
     private void fillTags(List<AdminMovieItem> items) {
@@ -209,6 +254,40 @@ public class AdminMovieService {
         }
         return posterUrl;
     }
+
+    private void ensureMovieExtraColumns() {
+        jdbcTemplate.getJdbcTemplate().execute("""
+                ALTER TABLE movies
+                ADD COLUMN IF NOT EXISTS director VARCHAR(120) NULL
+                """);
+        jdbcTemplate.getJdbcTemplate().execute("""
+                ALTER TABLE movies
+                ADD COLUMN IF NOT EXISTS cast_text VARCHAR(500) NULL
+                """);
+    }
+
+    private String joinCast(List<String> cast) {
+        if (cast == null || cast.isEmpty()) {
+            return "";
+        }
+        return cast.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .reduce((a, b) -> a + "," + b)
+                .orElse("");
+    }
+
+    private List<String> parseCast(String castText) {
+        if (castText == null || castText.isBlank()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(List.of(castText.split(","))).stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
 }
 
 record AdminMoviesPageResponse(
@@ -225,6 +304,8 @@ record AdminMovieItem(
         int year,
         String poster,
         String summary,
+        String director,
+        List<String> cast,
         BigDecimal rating,
         List<String> genres
 ) {}
@@ -238,6 +319,8 @@ record AdminMovieCreateRequest(
         int year,
         String poster,
         String summary,
+        String director,
+        List<String> cast,
         List<String> tags
 ) {}
 
@@ -254,10 +337,17 @@ record AdminMovieUpdateRequest(
         Integer year,
         String poster,
         String summary,
+        String director,
+        List<String> cast,
         List<String> tags
 ) {}
 
 record AdminMovieUpdateResponse(
         long id,
         boolean updated
+) {}
+
+record AdminMovieDeleteResponse(
+        long id,
+        boolean deleted
 ) {}

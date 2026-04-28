@@ -77,13 +77,14 @@ public class MovieQueryService {
     }
 
     public MovieDetailResponse getMovieDetail(Long id) {
+        ensureMovieExtraColumns();
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
         List<MovieDetailResponse> details = jdbcTemplate.query("""
-                SELECT m.id, m.title, m.summary, m.release_year, m.poster_url, COALESCE(ROUND(AVG(r.score), 1), 0.0) AS rating
+                SELECT m.id, m.title, m.summary, m.release_year, m.poster_url, m.director, m.cast_text, COALESCE(ROUND(AVG(r.score), 1), 0.0) AS rating
                 FROM movies m
                 LEFT JOIN ratings r ON r.movie_id = m.id
                 WHERE m.id = :id
-                GROUP BY m.id, m.title, m.summary, m.release_year, m.poster_url
+                GROUP BY m.id, m.title, m.summary, m.release_year, m.poster_url, m.director, m.cast_text
                 """, params, (rs, rowNum) -> new MovieDetailResponse(
                 rs.getLong("id"),
                 rs.getString("title"),
@@ -94,8 +95,8 @@ public class MovieQueryService {
                 new ArrayList<>(),
                 new ArrayList<>(),
                 rs.getString("summary") == null ? "" : rs.getString("summary"),
-                "待补充",
-                List.of("待补充"),
+                rs.getString("director") == null || rs.getString("director").isBlank() ? "待补充" : rs.getString("director"),
+                parseCast(rs.getString("cast_text")),
                 false,
                 0,
                 new ArrayList<>()
@@ -207,6 +208,31 @@ public class MovieQueryService {
             return DEFAULT_POSTER;
         }
         return posterUrl;
+    }
+
+    private void ensureMovieExtraColumns() {
+        jdbcTemplate.getJdbcTemplate().execute("""
+                ALTER TABLE movies
+                ADD COLUMN IF NOT EXISTS director VARCHAR(120) NULL
+                """);
+        jdbcTemplate.getJdbcTemplate().execute("""
+                ALTER TABLE movies
+                ADD COLUMN IF NOT EXISTS cast_text VARCHAR(500) NULL
+                """);
+    }
+
+    private List<String> parseCast(String castText) {
+        if (castText == null || castText.isBlank()) {
+            return List.of("待补充");
+        }
+        List<String> cast = new ArrayList<>();
+        for (String item : castText.split(",")) {
+            String name = item == null ? "" : item.trim();
+            if (!name.isEmpty()) {
+                cast.add(name);
+            }
+        }
+        return cast.isEmpty() ? List.of("待补充") : cast;
     }
 }
 

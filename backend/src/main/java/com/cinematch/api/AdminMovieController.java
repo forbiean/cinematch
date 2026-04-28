@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -71,6 +72,15 @@ public class AdminMovieController {
         return adminMovieService.updateMovie(id, request);
     }
 
+    @DeleteMapping("/movies/{id}")
+    public AdminMovieDeleteResponse deleteMovie(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        adminAuthService.requireAdmin(authorization);
+        return adminMovieService.deleteMovie(id);
+    }
+
     @GetMapping("/tags")
     public List<AdminTagItem> tags(
             @RequestHeader(value = "Authorization", required = false) String authorization
@@ -88,7 +98,7 @@ public class AdminMovieController {
         return adminTagService.createTag(request);
     }
 
-    @org.springframework.web.bind.annotation.DeleteMapping("/tags/{name}")
+    @DeleteMapping("/tags/{name}")
     public AdminTagDeleteResponse deleteTag(
             @PathVariable String name,
             @RequestHeader(value = "Authorization", required = false) String authorization
